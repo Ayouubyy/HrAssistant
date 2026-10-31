@@ -5,7 +5,7 @@ import type { AppSettings } from '../../shared/types'
 import { writeJsonAtomic } from './db'
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  model: 'gemini-flash-latest',
+  model: 'gemini-flash-lite-latest',
   policyText: '',
   requiredDocs: ['CV', 'Cover letter', 'Diploma'],
   doubleCheck: false,

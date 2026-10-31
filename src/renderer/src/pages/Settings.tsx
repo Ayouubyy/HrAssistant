@@ -60,7 +60,7 @@ export default function Settings(): ReactNode {
             )}
           </div>
           <div>
-            <Label hint="gemini-flash-latest always points to Google's newest fast model.">Model</Label>
+            <Label hint="gemini-flash-lite-latest is fastest. gemini-flash-latest is smarter but can be slow at busy times.">Model</Label>
             <Input value={s.model} onChange={(e) => setS({ ...s, model: e.target.value })} />
           </div>
           <Toggle
