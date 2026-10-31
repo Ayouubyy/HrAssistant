@@ -29,6 +29,13 @@ export const api = {
     open: (id: string) => call<void>('candidates:open', id),
     exportCsv: (jobId: string) => call<boolean>('candidates:exportCsv', jobId)
   },
+  assistant: {
+    ask: (
+      ref: { kind: 'job'; jobId: string } | { kind: 'email'; emailId: string } | { kind: 'none' },
+      history: { role: 'user' | 'assistant'; content: string }[]
+    ) =>
+      call<{ answer: string; filter?: { label: string; ids?: string[] } }>('assistant:ask', ref, history)
+  },
   on: window.api.on,
   pathForFile: window.api.pathForFile
 }

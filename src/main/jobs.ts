@@ -4,10 +4,11 @@ import { readFileSync, writeFileSync } from 'fs'
 import { extname, join } from 'path'
 import mammoth from 'mammoth'
 import { rankCandidates } from '../shared/scoring'
-import type { Candidate, JobFilter, PresetId } from '../shared/types'
+import type { Candidate, EmailItem, JobFilter, PresetId } from '../shared/types'
 import { createCache } from './ai/cache'
 import { GeminiProvider } from './ai/gemini'
-import { NoApiKeyError, type AIProvider } from './ai/provider'
+import { NoApiKeyError, type AIProvider, type ChatMessage } from './ai/provider'
+import { askAssistant, type ChatContext } from './assistant/chat'
 import { extractRequirements } from './cv/prompts'
 import { createPipeline } from './cv/pipeline'
 import { extractText } from './cv/extract'
@@ -79,6 +80,20 @@ export function jobHandlers(ctx: Ctx, services: ReturnType<typeof createServices
         filters: [{ name: 'Job description', extensions: ['txt', 'docx', 'pdf', 'md'] }]
       })
       return r.canceled ? null : readJobFile(r.filePaths[0])
+    },
+    'assistant:ask': async (
+      ref: { kind: 'job'; jobId: string } | { kind: 'email'; emailId: string } | { kind: 'none' },
+      history: ChatMessage[]
+    ) => {
+      let chat: ChatContext = { kind: 'none' }
+      if (ref.kind === 'job') {
+        const job = db.get<JobFilter>('jobs', ref.jobId)
+        if (job) chat = { kind: 'job', job, candidates: db.list<Candidate>('candidates').filter((c) => c.jobId === job.id) }
+      } else if (ref.kind === 'email') {
+        const email = db.get<EmailItem>('emails', ref.emailId)
+        if (email) chat = { kind: 'email', email }
+      }
+      return askAssistant(getProvider(), chat, history.slice(-12), getSettings().policyText)
     },
     'candidates:list': (jobId: string) => db.list<Candidate>('candidates').filter((c) => c.jobId === jobId),
     'candidates:counts': () => {

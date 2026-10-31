@@ -252,7 +252,7 @@ export default function JobFilterPage({
         <Card className={`overflow-hidden ${dragging ? 'ring-2 ring-accent' : ''}`}>
           <div className="flex items-center justify-between bg-stone-50 px-3 py-2">
             <div className="flex gap-1 rounded-lg bg-stone-200/50 p-0.5">
-              {tabBtn('ranked', 'Ranked', ranked.ranked.length)}
+              {tabBtn('ranked', 'Ranked', applyAssistantFilter(ranked.ranked, assistantFilter).length)}
               {tabBtn('rejected', 'Rejected', ranked.rejected.length)}
               {tabBtn('shortlist', 'Shortlist', shortlisted.length)}
             </div>
