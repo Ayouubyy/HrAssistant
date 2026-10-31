@@ -4,6 +4,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { createDb } from './store/db'
 import { Ctx, registerIpc, settingsHandlers } from './ipc'
+import { createServices, jobHandlers } from './jobs'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -23,7 +24,10 @@ function createWindow(): void {
     }
   })
 
-  mainWindow.on('ready-to-show', () => mainWindow?.show())
+  mainWindow.on('ready-to-show', () => {
+    mainWindow?.maximize()
+    mainWindow?.show()
+  })
   mainWindow.on('closed', () => (mainWindow = null))
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -47,8 +51,8 @@ app.whenReady().then(() => {
 
   const dataDir = join(app.getPath('userData'), 'data')
   const ctx: Ctx = { db: createDb(dataDir), dataDir, win: () => mainWindow }
-  registerIpc({ ...settingsHandlers() })
-  void ctx
+  const services = createServices(ctx)
+  registerIpc({ ...settingsHandlers(), ...jobHandlers(ctx, services) })
 
   createWindow()
 

@@ -1,14 +1,28 @@
-import { useState, type ReactNode } from 'react'
-import { Briefcase, Inbox, Lock, Plug, Plus, Settings as SettingsIcon, Sparkles } from 'lucide-react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { Briefcase, Inbox as InboxIcon, Lock, Plug, Plus, Settings as SettingsIcon } from 'lucide-react'
+import type { Candidate, EmailItem, JobFilter } from '@shared/types'
+import { api } from './api'
+import AssistantPanel, { type AssistantContext } from './components/AssistantPanel'
+import JobEditor from './pages/JobEditor'
+import JobFilterPage from './pages/JobFilterPage'
+import JobFilters from './pages/JobFilters'
 import Settings from './pages/Settings'
 
 export type Route =
   | { page: 'jobs' }
   | { page: 'newJob' }
+  | { page: 'editJob'; jobId: string }
   | { page: 'job'; jobId: string }
   | { page: 'inbox' }
   | { page: 'accounts' }
   | { page: 'settings' }
+
+export interface AssistantFilter {
+  label: string
+  minYears?: number
+  skills?: string[]
+  ids?: string[]
+}
 
 function NavItem({
   icon,
@@ -39,15 +53,56 @@ function NavItem({
 
 export default function App(): ReactNode {
   const [route, setRoute] = useState<Route>({ page: 'jobs' })
+  const [jobs, setJobs] = useState<JobFilter[]>([])
+  const [ctx, setCtx] = useState<AssistantContext>({ kind: 'none' })
+  const [filter, setFilter] = useState<AssistantFilter | null>(null)
+
+  useEffect(() => {
+    const load = (): void => void api.jobs.list().then(setJobs)
+    load()
+    return api.on('jobs:changed', load)
+  }, [])
+
+  const go = useCallback((r: Route) => {
+    setFilter(null)
+    setRoute(r)
+  }, [])
+
+  const onJobContext = useCallback((job: JobFilter | null, candidates: Candidate[]) => {
+    setCtx(job ? { kind: 'job', job, candidates } : { kind: 'none' })
+  }, [])
+  const onEmailContext = useCallback((email: EmailItem | null) => {
+    setCtx(email ? { kind: 'email', email } : { kind: 'none' })
+  }, [])
+  void onEmailContext
 
   const page = (): ReactNode => {
     switch (route.page) {
+      case 'jobs':
+        return <JobFilters go={go} />
+      case 'newJob':
+        return <JobEditor key="new" go={go} />
+      case 'editJob':
+        return <JobEditor key={route.jobId} jobId={route.jobId} go={go} />
+      case 'job':
+        return (
+          <JobFilterPage
+            key={route.jobId}
+            jobId={route.jobId}
+            go={go}
+            onContext={onJobContext}
+            assistantFilter={filter}
+            clearAssistantFilter={() => setFilter(null)}
+          />
+        )
       case 'settings':
         return <Settings />
       default:
         return <div className="text-stone-500">Coming next.</div>
     }
   }
+
+  const activeJob = route.page === 'job' || route.page === 'editJob' ? route.jobId : null
 
   return (
     <div className="flex h-full">
@@ -58,37 +113,53 @@ export default function App(): ReactNode {
           </div>
           <div className="font-semibold text-stone-900">HR Assistant</div>
         </div>
-        <nav className="flex-1 space-y-0.5 overflow-y-auto">
+        <nav className="flex min-h-0 flex-1 flex-col gap-0.5">
           <NavItem
             icon={<Briefcase size={16} />}
             label="Job filters"
-            active={route.page === 'jobs' || route.page === 'job'}
-            onClick={() => setRoute({ page: 'jobs' })}
+            active={route.page === 'jobs'}
+            onClick={() => go({ page: 'jobs' })}
           />
           <button
-            onClick={() => setRoute({ page: 'newJob' })}
-            className="flex w-full cursor-pointer items-center gap-2 rounded-md py-1 pr-2 pl-8 text-left text-sm text-accent hover:bg-stone-200/60"
+            onClick={() => go({ page: 'newJob' })}
+            className={`flex w-full cursor-pointer items-center gap-2 rounded-md py-1 pr-2 pl-8 text-left text-sm hover:bg-stone-200/60 ${
+              route.page === 'newJob' ? 'font-medium text-accent' : 'text-accent'
+            }`}
           >
             <Plus size={14} /> New job filter
           </button>
+          <div className="max-h-[40vh] overflow-y-auto">
+            {jobs.map((j) => (
+              <button
+                key={j.id}
+                onClick={() => go({ page: 'job', jobId: j.id })}
+                dir="auto"
+                className={`block w-full cursor-pointer truncate rounded-md py-1 pr-2 pl-8 text-left text-sm transition ${
+                  activeJob === j.id ? 'bg-white font-medium text-stone-900 shadow-sm' : 'text-stone-600 hover:bg-stone-200/60'
+                }`}
+              >
+                {j.title}
+              </button>
+            ))}
+          </div>
           <div className="h-3" />
           <NavItem
-            icon={<Inbox size={16} />}
+            icon={<InboxIcon size={16} />}
             label="Inbox"
             active={route.page === 'inbox'}
-            onClick={() => setRoute({ page: 'inbox' })}
+            onClick={() => go({ page: 'inbox' })}
           />
           <NavItem
             icon={<Plug size={16} />}
             label="Connected accounts"
             active={route.page === 'accounts'}
-            onClick={() => setRoute({ page: 'accounts' })}
+            onClick={() => go({ page: 'accounts' })}
           />
           <NavItem
             icon={<SettingsIcon size={16} />}
             label="Settings"
             active={route.page === 'settings'}
-            onClick={() => setRoute({ page: 'settings' })}
+            onClick={() => go({ page: 'settings' })}
           />
         </nav>
         <div className="flex items-center gap-1.5 px-2 pt-3 text-xs text-stone-500">
@@ -98,12 +169,7 @@ export default function App(): ReactNode {
 
       <main className="min-w-0 flex-1 overflow-y-auto px-8 py-7">{page()}</main>
 
-      <aside className="flex w-80 shrink-0 flex-col border-l border-stone-200 bg-white">
-        <div className="flex items-center gap-2 border-b border-stone-100 px-4 py-3 font-medium">
-          <Sparkles size={16} className="text-accent" /> Assistant
-        </div>
-        <div className="flex-1" />
-      </aside>
+      <AssistantPanel ctx={ctx} onFilter={setFilter} />
     </div>
   )
 }
