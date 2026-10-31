@@ -7,13 +7,14 @@ import { clamp100, str, strArr } from '../ai/json'
 export const CV_PROMPT_VERSION = 'cv-v1'
 
 const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g
-const PHONE = /\+?\d[\d\s().-]{7,}\d/g
+const PHONE = /\+?\d[\d \t().-]{7,18}\d/g
+const YEAR_RANGE = /^(19|20)\d\d\s*[-–]\s*(19|20)\d\d$/
 
 export function redactContacts(text: string): { text: string; email: string | null; phone: string | null } {
   const email = text.match(EMAIL)?.[0] ?? null
   let phone: string | null = null
   const out = text.replace(EMAIL, '[email]').replace(PHONE, (m) => {
-    if (m.replace(/\D/g, '').length < 9) return m
+    if (m.replace(/\D/g, '').length < 9 || YEAR_RANGE.test(m.trim())) return m
     phone ??= m.trim()
     return '[phone]'
   })

@@ -5,5 +5,5 @@ export const DEFAULT_SETTINGS: AppSettings = {
   policyText: '',
   requiredDocs: ['CV', 'Cover letter', 'Diploma'],
   doubleCheck: false,
-  concurrency: 3
+  concurrency: 2
 }

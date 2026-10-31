@@ -11,6 +11,11 @@ function Root(): ReactNode {
   return unlocked ? <App onLock={() => setUnlocked(false)} /> : <LockScreen onUnlock={onUnlock} />
 }
 
+// Files dropped outside a drop zone are ignored instead of opening in the window.
+for (const type of ['dragover', 'drop'] as const) {
+  document.addEventListener(type, (e) => e.preventDefault())
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <Root />

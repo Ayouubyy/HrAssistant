@@ -5,7 +5,8 @@ const call = <T>(channel: string, ...args: unknown[]): Promise<T> =>
 
 export const api = {
   lock: {
-    status: () => call<{ hasPin: boolean; hello: boolean; unlocked: boolean }>('lock:status'),
+    status: () => call<{ hasPin: boolean; unlocked: boolean }>('lock:status'),
+    helloAvailable: () => call<boolean>('lock:helloAvailable'),
     setPin: (pin: string) => call<void>('lock:setPin', pin),
     unlock: (pin: string) => call<boolean>('lock:unlock', pin),
     hello: () => call<boolean>('lock:hello'),

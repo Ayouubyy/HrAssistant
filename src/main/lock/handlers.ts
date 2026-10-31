@@ -5,9 +5,15 @@ import { hashPin, verifyPin } from './pin'
 let unlocked = false
 export const isUnlocked = (): boolean => unlocked
 
+// The Windows Hello probe runs PowerShell and takes a few seconds, so start it once at launch.
+let hello: Promise<boolean> | null = null
+const helloOnce = (): Promise<boolean> => (hello ??= helloAvailable())
+
 export function lockHandlers(): Record<string, (...a: never[]) => unknown> {
+  void helloOnce()
   return {
-    'lock:status': async () => ({ hasPin: !!getSecret('pinHash'), hello: await helloAvailable(), unlocked }),
+    'lock:status': () => ({ hasPin: !!getSecret('pinHash'), unlocked }),
+    'lock:helloAvailable': () => helloOnce(),
     'lock:setPin': (pin: string) => {
       if (getSecret('pinHash') && !unlocked) throw new Error('Unlock first.')
       if (!/^\d{4,6}$/.test(pin)) throw new Error('Use 4 to 6 digits.')

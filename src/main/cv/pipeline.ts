@@ -1,10 +1,10 @@
 import { randomUUID } from 'crypto'
-import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from 'fs'
 import { basename, extname, join } from 'path'
 import { weightedScore } from '../../shared/scoring'
 import type { Candidate, CandidateAnalysis, JobFilter } from '../../shared/types'
 import { cacheKey, sha256, type Cached } from '../ai/cache'
-import { RetryableError, type AIProvider } from '../ai/provider'
+import { withRetry as retry, type AIProvider } from '../ai/provider'
 import type { Db } from '../store/db'
 import { analyzeCv, CV_PROMPT_VERSION } from './prompts'
 import { extractText, SUPPORTED } from './extract'
@@ -21,7 +21,20 @@ export interface PipelineDeps {
   baseDelayMs?: number
 }
 
-const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
+// Folders are expanded recursively and keep only CV files; files picked directly are kept as-is
+// so an unsupported one still shows up with an error.
+function expandPaths(paths: string[], insideFolder = false): string[] {
+  const out: string[] = []
+  for (const p of paths) {
+    try {
+      if (statSync(p).isDirectory()) out.push(...expandPaths(readdirSync(p).map((f) => join(p, f)), true))
+      else if (!insideFolder || SUPPORTED.includes(extname(p).toLowerCase())) out.push(p)
+    } catch {
+      // unreadable path: skip it
+    }
+  }
+  return out
+}
 
 function averageAnalyses(a: CandidateAnalysis, b: CandidateAnalysis): CandidateAnalysis {
   const avg = (x: number, y: number): number => Math.round((x + y) / 2)
@@ -39,6 +52,7 @@ function averageAnalyses(a: CandidateAnalysis, b: CandidateAnalysis): CandidateA
 export function createPipeline(deps: PipelineDeps): {
   addFiles: (jobId: string, paths: string[], source: Candidate['source']) => Promise<Candidate[]>
   retry: (candidateId: string) => Promise<void>
+  reanalyzeJob: (jobId: string) => void
   idle: () => Promise<void>
 } {
   const { db, cached, filesDir, onUpdate, maxRetries = 4, baseDelayMs = 2000 } = deps
@@ -54,16 +68,7 @@ export function createPipeline(deps: PipelineDeps): {
     return c
   }
 
-  async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
-    for (let attempt = 0; ; attempt++) {
-      try {
-        return await fn()
-      } catch (e) {
-        if (!(e instanceof RetryableError) || attempt >= maxRetries) throw e
-        await sleep(baseDelayMs * 2 ** attempt)
-      }
-    }
-  }
+  const withRetry = <T,>(fn: () => Promise<T>): Promise<T> => retry(fn, maxRetries, baseDelayMs)
 
   async function process(id: string): Promise<void> {
     const c = db.get<Candidate>('candidates', id)
@@ -120,10 +125,14 @@ export function createPipeline(deps: PipelineDeps): {
           .map((c) => c.fileHash)
       )
       const added: Candidate[] = []
-      for (const p of paths) {
+      for (const p of expandPaths(paths)) {
         const ext = extname(p).toLowerCase()
-        if (!existsSync(p)) continue
-        const bytes = readFileSync(p)
+        let bytes: Buffer
+        try {
+          bytes = readFileSync(p)
+        } catch {
+          continue
+        }
         const hash = sha256(bytes)
         if (existing.has(hash)) continue
         existing.add(hash)
@@ -152,6 +161,13 @@ export function createPipeline(deps: PipelineDeps): {
       if (!c) return
       save({ ...c, status: 'pending', error: undefined })
       enqueue(id)
+    },
+    reanalyzeJob(jobId) {
+      for (const c of db.list<Candidate>('candidates')) {
+        if (c.jobId !== jobId || c.status === 'pending' || c.status === 'processing') continue
+        save({ ...c, status: 'pending', error: undefined })
+        enqueue(c.id)
+      }
     },
     idle: () =>
       running === 0 && queue.length === 0 ? Promise.resolve() : new Promise((r) => idleWaiters.push(r))

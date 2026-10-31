@@ -99,6 +99,15 @@ export default function JobFilterPage({
   const labels = useMemo(() => new Map(cands.map((c, i) => [c.id, `Candidate ${i + 1}`])), [cands])
   const ranked = useMemo(() => (job ? rankCandidates(cands, job) : null), [cands, job])
 
+  useEffect(() => {
+    if (!assistantFilter || !ranked) return
+    const inRanked = applyAssistantFilter(ranked.ranked, assistantFilter).length
+    const inRejected = applyAssistantFilter(ranked.rejected, assistantFilter).length
+    setTab(inRanked === 0 && inRejected > 0 ? 'rejected' : 'ranked')
+    // Only when a new filter arrives, not on every re-rank.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assistantFilter])
+
   if (!job || !ranked) return null
 
   const update = (patch: Partial<JobFilter>): void => {
@@ -125,12 +134,12 @@ export default function JobFilterPage({
   const done = cands.filter((c) => c.status === 'done').length
   const working = cands.filter((c) => c.status === 'pending' || c.status === 'processing').length
   const shortlisted = [...ranked.ranked, ...ranked.rejected].filter((c) => c.hrDecision === 'shortlist')
-  const list =
-    tab === 'ranked'
-      ? applyAssistantFilter(ranked.ranked, assistantFilter)
-      : tab === 'rejected'
-        ? ranked.rejected
-        : shortlisted
+  const lists: Record<Tab, RankedCandidate[]> = {
+    ranked: applyAssistantFilter(ranked.ranked, assistantFilter),
+    rejected: applyAssistantFilter(ranked.rejected, assistantFilter),
+    shortlist: applyAssistantFilter(shortlisted, assistantFilter)
+  }
+  const list = lists[tab]
   const open = openId ? [...ranked.ranked, ...ranked.rejected].find((c) => c.id === openId) : null
 
   const tabBtn = (t: Tab, text: string, n: number): ReactNode => (
@@ -252,12 +261,12 @@ export default function JobFilterPage({
         <Card className={`overflow-hidden ${dragging ? 'ring-2 ring-accent' : ''}`}>
           <div className="flex items-center justify-between bg-stone-50 px-3 py-2">
             <div className="flex gap-1 rounded-lg bg-stone-200/50 p-0.5">
-              {tabBtn('ranked', 'Ranked', applyAssistantFilter(ranked.ranked, assistantFilter).length)}
-              {tabBtn('rejected', 'Rejected', ranked.rejected.length)}
-              {tabBtn('shortlist', 'Shortlist', shortlisted.length)}
+              {tabBtn('ranked', 'Ranked', lists.ranked.length)}
+              {tabBtn('rejected', 'Rejected', lists.rejected.length)}
+              {tabBtn('shortlist', 'Shortlist', lists.shortlist.length)}
             </div>
             {dragging && <span className="text-sm text-accent">Drop to add CVs</span>}
-            {assistantFilter && tab === 'ranked' && (
+            {assistantFilter && (
               <button
                 onClick={clearAssistantFilter}
                 className="flex cursor-pointer items-center gap-1 rounded-md bg-accent-soft px-2 py-1 text-xs text-accent"

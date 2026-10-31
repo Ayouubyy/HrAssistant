@@ -3,13 +3,14 @@ import { existsSync } from 'fs'
 import { join } from 'path'
 import type { EmailItem } from '../../shared/types'
 import { cacheKey, sha256, type Cached } from '../ai/cache'
-import { RetryableError } from '../ai/provider'
+import { withRetry } from '../ai/provider'
 import type { createPipeline } from '../cv/pipeline'
 import { push, type Ctx } from '../ipc'
 import { getProvider } from '../jobs'
 import { getSettings } from '../store/settings'
 import { getSecret, setSecret } from '../store/secrets'
 import { loadEmlFolder, parseEmail } from './eml'
+import { createSerialRunner } from './runner'
 import { fetchInbox, replyAddress, sendReply, testGmail, type GmailAuth } from './gmail'
 
 function gmailAuth(): GmailAuth | null {
@@ -18,8 +19,6 @@ function gmailAuth(): GmailAuth | null {
   return user && pass ? { user, pass } : null
 }
 import { MAIL_PROMPT_VERSION, triageEmail } from './triage'
-
-const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
 
 export function sortEmails(list: EmailItem[]): EmailItem[] {
   return list.slice().sort((a, b) => {
@@ -34,30 +33,20 @@ export function createInbox(ctx: Ctx, cached: Cached): {
   triageAll: () => Promise<void>
 } {
   const { db } = ctx
-  let running = false
 
   async function triageOne(email: EmailItem): Promise<void> {
     const settings = getSettings()
     const ai = getProvider()
     const key = cacheKey(email.id, MAIL_PROMPT_VERSION, ai.model, sha256(settings.policyText + settings.requiredDocs.join('|')))
-    for (let attempt = 0; ; attempt++) {
-      try {
-        const triage = await cached(key, () => triageEmail(ai, email, settings))
-        const next = { ...db.get<EmailItem>('emails', email.id)!, triage, triageError: undefined }
-        db.put('emails', next)
-        push(ctx, 'emails:updated', next)
-        return
-      } catch (e) {
-        if (e instanceof RetryableError && attempt < 4) {
-          await sleep(2000 * 2 ** attempt)
-          continue
-        }
-        const next = { ...db.get<EmailItem>('emails', email.id)!, triageError: (e as Error).message }
-        db.put('emails', next)
-        push(ctx, 'emails:updated', next)
-        return
-      }
+    let next: EmailItem
+    try {
+      const triage = await withRetry(() => cached(key, () => triageEmail(ai, email, settings)))
+      next = { ...db.get<EmailItem>('emails', email.id)!, triage, triageError: undefined }
+    } catch (e) {
+      next = { ...db.get<EmailItem>('emails', email.id)!, triageError: (e as Error).message }
     }
+    db.put('emails', next)
+    push(ctx, 'emails:updated', next)
   }
 
   return {
@@ -68,19 +57,13 @@ export function createInbox(ctx: Ctx, cached: Cached): {
       }
       push(ctx, 'emails:changed', null)
     },
-    async triageAll() {
-      if (running) return
-      running = true
-      try {
-        const todo = db.list<EmailItem>('emails').filter((e) => !e.triage)
-        const workers = Array.from({ length: Math.max(1, getSettings().concurrency) }, async () => {
-          while (todo.length) await triageOne(todo.shift()!)
-        })
-        await Promise.all(workers)
-      } finally {
-        running = false
-      }
-    }
+    triageAll: createSerialRunner(async () => {
+      const todo = db.list<EmailItem>('emails').filter((e) => !e.triage && !e.triageError)
+      const workers = Array.from({ length: Math.max(1, getSettings().concurrency) }, async () => {
+        while (todo.length) await triageOne(todo.shift()!)
+      })
+      await Promise.all(workers)
+    })
   }
 }
 

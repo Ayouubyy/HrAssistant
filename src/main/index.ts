@@ -32,6 +32,11 @@ function createWindow(): void {
   })
   mainWindow.on('closed', () => (mainWindow = null))
 
+  // A file dropped anywhere outside a drop zone must not replace the app with a file viewer.
+  mainWindow.webContents.on('will-navigate', (e, url) => {
+    if (!url.startsWith(process.env['ELECTRON_RENDERER_URL'] ?? '\u0000')) e.preventDefault()
+  })
+
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }

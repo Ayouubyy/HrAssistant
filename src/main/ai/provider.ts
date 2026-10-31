@@ -15,10 +15,31 @@ export class NoApiKeyError extends Error {
   }
 }
 
-export class RetryableError extends Error {}
+export class RetryableError extends Error {
+  constructor(
+    message: string,
+    readonly delayMs?: number
+  ) {
+    super(message)
+  }
+}
 
 export class OfflineError extends Error {
   constructor() {
     super("You're offline. Results already analyzed are still available.")
+  }
+}
+
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
+
+export async function withRetry<T>(fn: () => Promise<T>, maxRetries = 4, baseDelayMs = 2000): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn()
+    } catch (e) {
+      if (!(e instanceof RetryableError) || attempt >= maxRetries) throw e
+      const backoff = baseDelayMs * 2 ** attempt
+      await sleep(Math.max(backoff, e.delayMs ?? 0) + Math.random() * baseDelayMs)
+    }
   }
 }

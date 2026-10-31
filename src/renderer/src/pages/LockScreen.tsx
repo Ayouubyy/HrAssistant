@@ -4,7 +4,8 @@ import { api, errorMessage } from '../api'
 import { Button } from '../components/ui'
 
 export default function LockScreen({ onUnlock }: { onUnlock: () => void }): ReactNode {
-  const [status, setStatus] = useState<{ hasPin: boolean; hello: boolean } | null>(null)
+  const [status, setStatus] = useState<{ hasPin: boolean } | null>(null)
+  const [helloOk, setHelloOk] = useState(false)
   const [pin, setPin] = useState('')
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -16,6 +17,7 @@ export default function LockScreen({ onUnlock }: { onUnlock: () => void }): Reac
       if (s.unlocked) onUnlock()
       else setStatus(s)
     })
+    api.lock.helloAvailable().then(setHelloOk)
   }, [onUnlock])
 
   useEffect(() => input.current?.focus(), [status])
@@ -86,7 +88,7 @@ export default function LockScreen({ onUnlock }: { onUnlock: () => void }): Reac
           <Button variant="primary" className="w-full justify-center py-2" onClick={submit}>
             <Lock size={14} /> {setup ? 'Set PIN and continue' : 'Unlock'}
           </Button>
-          {!setup && status.hello && (
+          {!setup && helloOk && (
             <Button className="w-full justify-center py-2" onClick={hello} disabled={busy}>
               {busy ? <Loader2 size={15} className="animate-spin" /> : <Fingerprint size={15} />} Unlock with Windows Hello
             </Button>

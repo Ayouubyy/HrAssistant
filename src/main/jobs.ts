@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto'
-import { dialog, shell } from 'electron'
+import { app, dialog, shell } from 'electron'
 import { readFileSync, writeFileSync } from 'fs'
 import { extname, join } from 'path'
 import mammoth from 'mammoth'
@@ -7,7 +7,8 @@ import { rankCandidates } from '../shared/scoring'
 import type { Candidate, EmailItem, JobFilter, PresetId } from '../shared/types'
 import { createCache } from './ai/cache'
 import { GeminiProvider } from './ai/gemini'
-import { NoApiKeyError, type AIProvider, type ChatMessage } from './ai/provider'
+import { NoApiKeyError, withRetry, type AIProvider, type ChatMessage } from './ai/provider'
+import { csvSeparator, toCsv } from './csv'
 import { askAssistant, type ChatContext } from './assistant/chat'
 import { extractRequirements } from './cv/prompts'
 import { createPipeline } from './cv/pipeline'
@@ -39,11 +40,6 @@ export function createServices(ctx: Ctx): {
   return { cached, pipeline }
 }
 
-function csvCell(v: unknown): string {
-  const s = String(v ?? '')
-  return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
-}
-
 async function readJobFile(path: string): Promise<string> {
   const ext = extname(path).toLowerCase()
   if (ext === '.docx') return (await mammoth.extractRawText({ path })).value
@@ -59,7 +55,14 @@ export function jobHandlers(ctx: Ctx, services: ReturnType<typeof createServices
       db.list<JobFilter>('jobs').sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     'jobs:get': (id: string) => db.get<JobFilter>('jobs', id),
     'jobs:save': (job: JobFilter) => {
+      const old = job.id ? db.get<JobFilter>('jobs', job.id) : null
       const saved = db.put('jobs', { ...job, id: job.id || randomUUID(), createdAt: job.createdAt || new Date().toISOString() })
+      const screeningChanged =
+        old &&
+        (old.description !== saved.description ||
+          old.preset !== saved.preset ||
+          JSON.stringify(old.requirements) !== JSON.stringify(saved.requirements))
+      if (screeningChanged) pipeline.reanalyzeJob(saved.id)
       push(ctx, 'jobs:changed', null)
       return saved
     },
@@ -70,8 +73,8 @@ export function jobHandlers(ctx: Ctx, services: ReturnType<typeof createServices
     },
     'jobs:extractRequirements': async (description: string, preset: PresetId) => {
       const ai = getProvider()
-      return cached(`req\u0000${description}\u0000${preset}\u0000${ai.model}`, () =>
-        extractRequirements(ai, description, preset)
+      return withRetry(() =>
+        cached(`req\u0000${description}\u0000${preset}\u0000${ai.model}`, () => extractRequirements(ai, description, preset))
       )
     },
     'jobs:loadDescriptionFile': async () => {
@@ -93,7 +96,8 @@ export function jobHandlers(ctx: Ctx, services: ReturnType<typeof createServices
         const email = db.get<EmailItem>('emails', ref.emailId)
         if (email) chat = { kind: 'email', email }
       }
-      return askAssistant(getProvider(), chat, history.slice(-12), getSettings().policyText)
+      const ai = getProvider()
+      return withRetry(() => askAssistant(ai, chat, history.slice(-12), getSettings().policyText), 2)
     },
     'candidates:list': (jobId: string) => db.list<Candidate>('candidates').filter((c) => c.jobId === jobId),
     'candidates:counts': () => {
@@ -149,10 +153,8 @@ export function jobHandlers(ctx: Ctx, services: ReturnType<typeof createServices
           c.analysis?.verdict ?? '',
           missing
         ]
-          .map(csvCell)
-          .join(',')
       })
-      writeFileSync(r.filePath, '﻿' + [header.join(','), ...lines].join('\r\n'))
+      writeFileSync(r.filePath, '﻿' + toCsv([header, ...lines], csvSeparator(app.getSystemLocale())))
       return true
     }
   }
