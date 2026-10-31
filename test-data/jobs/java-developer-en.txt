@@ -1,0 +1,16 @@
+Senior Java Developer — Fintech, remote-friendly
+
+You'll build and run the backend services behind our payments platform.
+
+Responsibilities:
+- Design and build Java / Spring Boot microservices
+- Work with Kafka event streams and PostgreSQL
+- Own services in production on Kubernetes (AWS)
+
+Requirements:
+- 4+ years of professional Java experience (required)
+- Spring Boot (required)
+- Kafka or another message broker
+- PostgreSQL or another relational database
+- Docker and Kubernetes
+- English (required)
