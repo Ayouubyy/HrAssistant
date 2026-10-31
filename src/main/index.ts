@@ -6,6 +6,7 @@ import { createDb } from './store/db'
 import { Ctx, registerIpc, settingsHandlers } from './ipc'
 import { createServices, jobHandlers } from './jobs'
 import { createInbox, inboxHandlers } from './inbox/handlers'
+import { isUnlocked, lockHandlers } from './lock/handlers'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -54,11 +55,15 @@ app.whenReady().then(() => {
   const ctx: Ctx = { db: createDb(dataDir), dataDir, win: () => mainWindow }
   const services = createServices(ctx)
   const inbox = createInbox(ctx, services.cached)
-  registerIpc({
-    ...settingsHandlers(),
-    ...jobHandlers(ctx, services),
-    ...inboxHandlers(ctx, inbox, services.pipeline)
-  })
+  registerIpc(
+    {
+      ...lockHandlers(),
+      ...settingsHandlers(),
+      ...jobHandlers(ctx, services),
+      ...inboxHandlers(ctx, inbox, services.pipeline)
+    },
+    isUnlocked
+  )
 
   createWindow()
 

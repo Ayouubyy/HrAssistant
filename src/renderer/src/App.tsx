@@ -53,7 +53,7 @@ function NavItem({
   )
 }
 
-export default function App(): ReactNode {
+export default function App({ onLock }: { onLock: () => void }): ReactNode {
   const [route, setRoute] = useState<Route>({ page: 'jobs' })
   const [jobs, setJobs] = useState<JobFilter[]>([])
   const [ctx, setCtx] = useState<AssistantContext>({ kind: 'none' })
@@ -165,8 +165,19 @@ export default function App(): ReactNode {
             onClick={() => go({ page: 'settings' })}
           />
         </nav>
-        <div className="flex items-center gap-1.5 px-2 pt-3 text-xs text-stone-500">
-          <Lock size={12} /> All data stored on this computer
+        <div className="flex items-center justify-between px-2 pt-3 text-xs text-stone-500">
+          <span className="flex items-center gap-1.5">
+            <Lock size={12} /> Stored on this computer
+          </span>
+          <button
+            onClick={async () => {
+              await api.lock.lock()
+              onLock()
+            }}
+            className="cursor-pointer rounded px-1.5 py-0.5 hover:bg-stone-200/60 hover:text-stone-800"
+          >
+            Lock
+          </button>
         </div>
       </aside>
 

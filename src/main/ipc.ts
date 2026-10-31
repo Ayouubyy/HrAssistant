@@ -12,9 +12,12 @@ export interface Ctx {
 
 type Handler = (...args: never[]) => unknown
 
-export function registerIpc(handlers: Record<string, Handler>): void {
+export function registerIpc(handlers: Record<string, Handler>, isUnlocked: () => boolean): void {
   for (const [channel, fn] of Object.entries(handlers)) {
-    ipcMain.handle(channel, (_e, ...args) => (fn as (...a: unknown[]) => unknown)(...args))
+    ipcMain.handle(channel, (_e, ...args) => {
+      if (!channel.startsWith('lock:') && !isUnlocked()) throw new Error('HR Assistant is locked.')
+      return (fn as (...a: unknown[]) => unknown)(...args)
+    })
   }
 }
 

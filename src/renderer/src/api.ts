@@ -4,6 +4,13 @@ const call = <T>(channel: string, ...args: unknown[]): Promise<T> =>
   window.api.invoke(channel, ...args) as Promise<T>
 
 export const api = {
+  lock: {
+    status: () => call<{ hasPin: boolean; hello: boolean; unlocked: boolean }>('lock:status'),
+    setPin: (pin: string) => call<void>('lock:setPin', pin),
+    unlock: (pin: string) => call<boolean>('lock:unlock', pin),
+    hello: () => call<boolean>('lock:hello'),
+    lock: () => call<void>('lock:lock')
+  },
   settings: {
     get: () => call<AppSettings>('settings:get'),
     save: (patch: Partial<AppSettings>) => call<AppSettings>('settings:save', patch),
