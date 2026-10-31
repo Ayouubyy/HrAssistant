@@ -1,4 +1,4 @@
-import type { AppSettings, Candidate, JobFilter, PresetId, Requirement } from '@shared/types'
+import type { AppSettings, Candidate, EmailItem, JobFilter, PresetId, Requirement } from '@shared/types'
 
 const call = <T>(channel: string, ...args: unknown[]): Promise<T> =>
   window.api.invoke(channel, ...args) as Promise<T>
@@ -28,6 +28,22 @@ export const api = {
     retry: (id: string) => call<void>('candidates:retry', id),
     open: (id: string) => call<void>('candidates:open', id),
     exportCsv: (jobId: string) => call<boolean>('candidates:exportCsv', jobId)
+  },
+  inbox: {
+    list: () => call<EmailItem[]>('inbox:list'),
+    loadDemo: () => call<number>('inbox:loadDemo'),
+    triageAll: () => call<void>('inbox:triageAll'),
+    retriage: (id: string) => call<void>('inbox:retriage', id),
+    clear: () => call<void>('inbox:clear'),
+    openAttachment: (path: string) => call<void>('inbox:openAttachment', path),
+    sendToScreening: (emailId: string, jobId: string) => call<number>('inbox:sendToScreening', emailId, jobId)
+  },
+  gmail: {
+    status: () => call<{ connected: boolean; user: string | null }>('gmail:status'),
+    connect: (user: string, appPassword: string) => call<void>('gmail:connect', user, appPassword),
+    disconnect: () => call<void>('gmail:disconnect'),
+    refresh: () => call<number>('gmail:refresh'),
+    send: (emailId: string, body: string) => call<void>('gmail:send', emailId, body)
   },
   assistant: {
     ask: (

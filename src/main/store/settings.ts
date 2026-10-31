@@ -3,14 +3,7 @@ import { existsSync, readFileSync } from 'fs'
 import { join } from 'path'
 import type { AppSettings } from '../../shared/types'
 import { writeJsonAtomic } from './db'
-
-export const DEFAULT_SETTINGS: AppSettings = {
-  model: 'gemini-flash-lite-latest',
-  policyText: '',
-  requiredDocs: ['CV', 'Cover letter', 'Diploma'],
-  doubleCheck: false,
-  concurrency: 3
-}
+import { DEFAULT_SETTINGS } from './settings-defaults'
 
 const file = (): string => join(app.getPath('userData'), 'settings.json')
 

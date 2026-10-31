@@ -7,6 +7,8 @@ import JobEditor from './pages/JobEditor'
 import JobFilterPage from './pages/JobFilterPage'
 import JobFilters from './pages/JobFilters'
 import Settings from './pages/Settings'
+import Inbox from './pages/Inbox'
+import Accounts from './pages/Accounts'
 
 export type Route =
   | { page: 'jobs' }
@@ -74,7 +76,6 @@ export default function App(): ReactNode {
   const onEmailContext = useCallback((email: EmailItem | null) => {
     setCtx(email ? { kind: 'email', email } : { kind: 'none' })
   }, [])
-  void onEmailContext
 
   const page = (): ReactNode => {
     switch (route.page) {
@@ -95,10 +96,12 @@ export default function App(): ReactNode {
             clearAssistantFilter={() => setFilter(null)}
           />
         )
+      case 'inbox':
+        return <Inbox go={go} onContext={onEmailContext} />
+      case 'accounts':
+        return <Accounts />
       case 'settings':
         return <Settings />
-      default:
-        return <div className="text-stone-500">Coming next.</div>
     }
   }
 

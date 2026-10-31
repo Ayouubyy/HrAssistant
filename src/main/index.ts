@@ -5,6 +5,7 @@ import icon from '../../resources/icon.png?asset'
 import { createDb } from './store/db'
 import { Ctx, registerIpc, settingsHandlers } from './ipc'
 import { createServices, jobHandlers } from './jobs'
+import { createInbox, inboxHandlers } from './inbox/handlers'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -52,7 +53,12 @@ app.whenReady().then(() => {
   const dataDir = join(app.getPath('userData'), 'data')
   const ctx: Ctx = { db: createDb(dataDir), dataDir, win: () => mainWindow }
   const services = createServices(ctx)
-  registerIpc({ ...settingsHandlers(), ...jobHandlers(ctx, services) })
+  const inbox = createInbox(ctx, services.cached)
+  registerIpc({
+    ...settingsHandlers(),
+    ...jobHandlers(ctx, services),
+    ...inboxHandlers(ctx, inbox, services.pipeline)
+  })
 
   createWindow()
 
