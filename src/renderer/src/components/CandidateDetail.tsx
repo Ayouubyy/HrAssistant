@@ -72,9 +72,15 @@ export default function CandidateDetail({
 
         {c.rejected && (
           <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
-            {c.reason}
+            {c.suggested ? `Suggested rejection: ${c.reason}. It isn't a rejection until you confirm it.` : c.reason}
+            {c.rejection && !c.suggested && (
+              <div className="mt-0.5 text-xs text-rose-700/80">
+                Confirmed {new Date(c.rejection.at).toLocaleString()} at score {c.rejection.score}, threshold {c.rejection.threshold}.
+              </div>
+            )}
           </div>
         )}
+        {c.note && <div className="mb-4 rounded-lg bg-stone-50 px-3 py-2 text-sm text-stone-600">{c.note}</div>}
         <SecurityFlags item={c} onDismiss={onDismissFlags} />
         <div className="mb-1 rounded-lg bg-stone-50 px-3 py-2.5 text-sm text-stone-700" dir="auto">
           {a.verdict}

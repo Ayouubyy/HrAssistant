@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ArrowRight, FolderOpen, Plus } from 'lucide-react'
+import { addressOf, displayNameOf } from '@shared/address'
 import { needsReview } from '@shared/flags'
 import { rankCandidates } from '@shared/scoring'
 import type { Candidate, EmailItem, JobFilter } from '@shared/types'
@@ -39,6 +40,7 @@ export default function Home({ go }: { go: (r: Route) => void }): ReactNode {
   const [cands, setCands] = useState<Record<string, Candidate[]>>({})
   const [emails, setEmails] = useState<EmailItem[]>([])
   const [figure, setFigure] = useState<Figure | null>(null)
+  const [freeTierOk, setFreeTierOk] = useState(true)
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   const load = useCallback(async () => {
@@ -47,6 +49,7 @@ export default function Home({ go }: { go: (r: Route) => void }): ReactNode {
     setJobs(js)
     setCands(Object.fromEntries(js.map((j, i) => [j.id, lists[i]])))
     setEmails(await api.inbox.list())
+    setFreeTierOk((await api.settings.get()).freeTierAcknowledged)
   }, [])
 
   useEffect(() => {
@@ -69,7 +72,7 @@ export default function Home({ go }: { go: (r: Route) => void }): ReactNode {
     for (const job of jobs ?? []) {
       const list = cands[job.id] ?? []
       const label = new Map(list.map((c, i) => [c.id, i + 1]))
-      const { ranked } = rankCandidates(list, job)
+      const { ranked, rejected } = rankCandidates(list, job)
       for (const c of list) {
         const n = label.get(c.id)!
         const base = { ref: cvRef(n), where: job.title, go: { page: 'job', jobId: job.id, candidateId: c.id } as Route }
@@ -93,9 +96,24 @@ export default function Home({ go }: { go: (r: Route) => void }): ReactNode {
           order: 3 + (100 - c.score) / 1000
         })
       }
+      // A rule's suggestion is still HR's decision to make.
+      for (const c of rejected.filter((x) => x.suggested && !needsReview(x))) {
+        const n = label.get(c.id)!
+        out.push({
+          key: c.id,
+          figure: 'decide',
+          mark: 'look',
+          ref: cvRef(n),
+          item: c.revealed && c.analysis?.identity.name ? c.analysis.identity.name : `Candidate ${n}`,
+          where: job.title,
+          status: `Suggested rejection · ${c.reason}`,
+          go: { page: 'job', jobId: job.id, candidateId: c.id },
+          order: 3.5
+        })
+      }
     }
     for (const e of emails) {
-      const base = { key: e.id, ref: mailRef(e.id), item: e.subject, where: e.from.replace(/<[^>]+>/, '').replace(/"/g, '').trim(), go: { page: 'inbox', emailId: e.id } as Route }
+      const base = { key: e.id, ref: mailRef(e.id), item: e.subject, where: displayNameOf(e.from) || addressOf(e.from), go: { page: 'inbox', emailId: e.id } as Route }
       if (needsReview(e)) out.push({ ...base, figure: 'review', mark: 'needs', status: firstHigh(e.flags), order: 1 })
       else if (isUrgent(e)) out.push({ ...base, figure: 'urgent', mark: 'look', status: e.triage?.urgencyReason || 'Urgent', order: 2 })
       else if (!e.triage && !e.triageError) out.push({ ...base, figure: 'progress', mark: 'progress', status: 'Sorting', order: 4 })
@@ -106,13 +124,10 @@ export default function Home({ go }: { go: (r: Route) => void }): ReactNode {
   if (!jobs) return null
 
   const count = (f: Figure): number => rows.filter((r) => r.figure === f).length
-  const undecided = jobs.reduce(
-    (n, j) => n + rankCandidates(cands[j.id] ?? [], j).ranked.filter((c) => !c.hrDecision && !needsReview(c)).length,
-    0
-  )
+  const undecided = count('decide')
   const figures: { id: Figure; value: number; label: string; note: string }[] = [
     { id: 'review', value: count('review'), label: 'Need review', note: 'Flagged by a security check' },
-    { id: 'decide', value: undecided, label: 'Awaiting your decision', note: 'Ranked, not yet shortlisted' },
+    { id: 'decide', value: undecided, label: 'Awaiting your decision', note: 'Ranked, or a suggested rejection' },
     { id: 'urgent', value: count('urgent'), label: 'Urgent emails', note: 'AI-assessed, verified senders' },
     { id: 'progress', value: count('progress'), label: 'In progress', note: 'CVs and emails being read' }
   ]
@@ -145,6 +160,21 @@ export default function Home({ go }: { go: (r: Route) => void }): ReactNode {
           <p className="mt-0.5 text-[15px] text-stone-600">{status}</p>
         </div>
       </div>
+
+      {!freeTierOk && (
+        <div className="mb-5 flex items-center gap-3 border-l-2 border-accent bg-accent-soft px-3 py-2 text-sm text-stone-800">
+          <span className="flex-1">
+            On Google’s free Gemini tier, CV and email text you send may be used to improve Google’s products. Use demo data
+            only, or a paid key.
+          </span>
+          <button
+            className="cursor-pointer text-sm font-medium text-accent hover:underline"
+            onClick={() => void api.settings.save({ freeTierAcknowledged: true }).then(() => setFreeTierOk(true))}
+          >
+            I understand
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-4 border-y border-stone-900">
         {figures.map((f, i) => {

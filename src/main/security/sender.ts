@@ -1,8 +1,7 @@
+import { addressOf, displayNameOf, domainOf, nameHidesAddress } from '../../shared/address'
 import type { ReviewFlag, SenderAuth } from '../../shared/types'
 
-export const addressOf = (from: string): string => (from.match(/<([^>]+)>/)?.[1] ?? from).trim().toLowerCase()
-export const domainOf = (from: string): string => addressOf(from).split('@')[1]?.replace(/[>\s]/g, '') ?? ''
-export const displayNameOf = (from: string): string => from.replace(/<[^>]*>/, '').replace(/"/g, '').trim()
+export { addressOf, displayNameOf, domainOf }
 
 // Only the topmost Authentication-Results added by mx.google.com counts: headers further down
 // were written before the message reached Google, so a sender can forge them.
@@ -115,6 +114,14 @@ const DISPOSABLE = new Set([
 export function senderFlags(from: string, companyDomains: string[]): ReviewFlag[] {
   const flags: ReviewFlag[] = []
   const domain = domainOf(from)
+  const hidden = nameHidesAddress(from)
+  if (hidden)
+    flags.push({
+      code: 'display_name_spoof',
+      severity: 'high',
+      detail: `The sender's name shows ${hidden}, but the mail really came from ${addressOf(from)}.`,
+      evidence: from.slice(0, 120)
+    })
   const like = lookalikeOf(domain, companyDomains)
   if (like)
     flags.push({

@@ -41,14 +41,25 @@ export function startAutoLock(onLock: () => void): void {
   }, 30_000)
 }
 
+// No PIN but saved accounts: the PIN was removed from secrets.json. A new PIN must not inherit the
+// Gmail connection or API key of whoever set the old one.
+const STORED: Parameters<typeof getSecret>[0][] = ['gmailUser', 'gmailAppPassword', 'geminiKey', 'helloCredential']
+const pinRemoved = (): boolean => !getSecret('pinHash') && STORED.some((n) => !!getSecret(n))
+
 export function lockHandlers(): Record<string, (...a: never[]) => unknown> {
   void helloOnce()
   return {
-    'lock:status': () => ({ hasPin: !!getSecret('pinHash'), unlocked, waitSeconds: waitSeconds(readState(), Date.now()) }),
+    'lock:status': () => ({
+      hasPin: !!getSecret('pinHash'),
+      pinRemoved: pinRemoved(),
+      unlocked,
+      waitSeconds: waitSeconds(readState(), Date.now())
+    }),
     'lock:helloAvailable': () => helloOnce(),
     'lock:setPin': (pin: string) => {
       if (getSecret('pinHash') && !unlocked) throw new Error('Unlock first.')
       if (typeof pin !== 'string' || !/^\d{4,6}$/.test(pin)) throw new Error('Use 4 to 6 digits.')
+      if (pinRemoved()) for (const n of STORED) setSecret(n, null)
       setSecret('pinHash', hashPin(pin))
       unlocked = true
     },

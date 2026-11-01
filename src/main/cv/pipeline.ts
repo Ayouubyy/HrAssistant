@@ -13,7 +13,7 @@ import { checkAnalysis, escalate, jdCopy, keywordStuffing, quotesCheckable } fro
 import type { ScanResult } from '../security/defender'
 import type { Db } from '../store/db'
 import { aiText, analyzeCv, CV_PROMPT_VERSION } from './prompts'
-import { extractText, SUPPORTED, UnsupportedFileError } from './extract'
+import { extractText, SUPPORTED, UnsupportedFileError, type Extracted } from './extract'
 
 export interface PipelineDeps {
   ai: () => AIProvider
@@ -27,6 +27,8 @@ export interface PipelineDeps {
   baseDelayMs?: number
   extractMs?: number
   scan?: (path: string) => Promise<ScanResult>
+  // the app reads files in a utility process; tests read them in-process
+  extract?: (path: string) => Promise<Extracted>
 }
 
 const malwareFlag = (scan: ScanResult): ReviewFlag[] =>
@@ -118,21 +120,26 @@ export function createPipeline(deps: PipelineDeps): {
     const c = db.get<Candidate>('candidates', id)
     const job = c && db.get<JobFilter>('jobs', c.jobId)
     if (!c || !job) return
-    save({ ...c, status: 'processing', error: undefined })
+    // A re-screen keeps the previous result in the ranking until the new one is ready.
+    const rescreen = c.status === 'done' && !!c.analysis
+    save(rescreen ? { ...c, rescreen: 'running', error: undefined } : { ...c, status: 'processing', error: undefined })
     // The antivirus scan runs alongside the analysis and never blocks it.
     const scanning = c.scan && c.scan !== 'unavailable' ? Promise.resolve(c.scan) : (deps.scan?.(c.filePath) ?? Promise.resolve(undefined))
     try {
-      const ex = await withTimeout(extractText(c.filePath), extractMs)
+      const ex = await withTimeout((deps.extract ?? extractText)(c.filePath), extractMs)
       const scan = await scanning
-      const fileFlags = [...ex.flags, ...scanInjection(ex.fullText), ...(scan ? malwareFlag(scan) : [])]
+      // Hidden text is a warning unless it gives instructions or copies the job description.
+      const hiddenAttack = !!ex.hidden && (scanInjection(ex.hidden).some((f) => f.severity === 'high') || jdCopy(ex.hidden, job.description).length > 0)
+      const exFlags = ex.flags.map((f) => (f.code === 'hidden_text' && hiddenAttack ? { ...f, severity: 'high' as const } : f))
+      const fileFlags = [...exFlags, ...scanInjection(ex.fullText), ...(scan ? malwareFlag(scan) : [])]
       const ai = deps.ai()
       const base = [ex.hash, sha256(job.description), JSON.stringify(job.requirements), job.preset, CV_PROMPT_VERSION, ai.model]
       const cacheIds = [cacheId(cacheKey(...base))]
       let analysis = await withRetry(() => cached(cacheKey(...base), () => analyzeCv(ai, job, ex.text)))
       const flags: ReviewFlag[] = []
       if (deps.doubleCheck() && Math.abs(weightedScore(analysis.subScores, job.weights) - job.threshold) <= 5) {
-        cacheIds.push(cacheId(cacheKey(...base, 'check')))
-        const second = await withRetry(() => cached(cacheKey(...base, 'check'), () => analyzeCv(ai, job, ex.text)))
+        cacheIds.push(cacheId(cacheKey(...base, 'check-v2')))
+        const second = await withRetry(() => cached(cacheKey(...base, 'check-v2'), () => analyzeCv(ai, job, ex.text, true)))
         const gap = Math.abs(weightedScore(analysis.subScores, job.weights) - weightedScore(second.subScores, job.weights))
         if (gap > 10)
           flags.push({ code: 'score_anomaly', severity: 'info', detail: `The AI is unsure about this one: two readings differ by ${gap} points.` })
@@ -147,8 +154,15 @@ export function createPipeline(deps: PipelineDeps): {
           evidence: suspicious.join(' · ').slice(0, 120)
         })
       const injected = suspicious.length > 0 || fileFlags.some((f) => f.severity === 'high' && f.code !== 'active_content')
+      const checkable = quotesCheckable(c.fileName, ex.text)
+      if (!checkable)
+        flags.push({
+          code: 'text_order',
+          severity: 'info',
+          detail: 'Arabic text in this PDF may have been read out of order, so the AI’s quotes weren’t checked. Check the original CV.'
+        })
       flags.push(
-        ...checkAnalysis(analysis, job, aiText(ex.text).text, injected, quotesCheckable(c.fileName, ex.text)),
+        ...checkAnalysis(analysis, job, aiText(ex.text).text, injected, checkable),
         ...jdCopy(ex.text, job.description),
         ...keywordStuffing(ex.text, job)
       )
@@ -158,6 +172,7 @@ export function createPipeline(deps: PipelineDeps): {
         status: 'done',
         analysis,
         error: undefined,
+        rescreen: undefined,
         flags: all,
         scan,
         cacheIds: [...new Set([...(prev?.cacheIds ?? []), ...cacheIds])],
@@ -171,7 +186,8 @@ export function createPipeline(deps: PipelineDeps): {
           ? [{ code: 'invalid_output' as const, severity: 'warn' as const, detail: 'The AI returned an unusable answer twice. Retry, or check the CV yourself.' }]
           : [])
       ]
-      saveIfExists(id, { status: 'error', error: (e as Error).message, flags: flags.length ? flags : undefined, scan })
+      if (rescreen) saveIfExists(id, { rescreen: 'failed', error: (e as Error).message })
+      else saveIfExists(id, { status: 'error', error: (e as Error).message, flags: flags.length ? flags : undefined, scan })
     }
   }
 
@@ -198,7 +214,7 @@ export function createPipeline(deps: PipelineDeps): {
 
   // Resume anything interrupted by a restart.
   for (const c of db.list<Candidate>('candidates')) {
-    if (c.status === 'pending' || c.status === 'processing') enqueue(c.id)
+    if (c.status === 'pending' || c.status === 'processing' || c.rescreen === 'running') enqueue(c.id)
   }
 
   const newCandidate = (jobId: string, p: string, source: Candidate['source'], extra: Partial<Candidate>): Candidate => ({
@@ -269,13 +285,13 @@ export function createPipeline(deps: PipelineDeps): {
     async retry(id) {
       const c = db.get<Candidate>('candidates', id)
       if (!c) return
-      save({ ...c, status: 'pending', error: undefined })
+      save(c.status === 'done' && c.analysis ? { ...c, rescreen: 'running', error: undefined } : { ...c, status: 'pending', error: undefined })
       enqueue(id)
     },
     reanalyzeJob(jobId) {
       for (const c of db.list<Candidate>('candidates')) {
-        if (c.jobId !== jobId || c.status === 'pending' || c.status === 'processing' || !c.filePath) continue
-        save({ ...c, status: 'pending', error: undefined })
+        if (c.jobId !== jobId || c.status === 'pending' || c.status === 'processing' || c.rescreen === 'running' || !c.filePath) continue
+        save(c.status === 'done' && c.analysis ? { ...c, rescreen: 'running', error: undefined } : { ...c, status: 'pending', error: undefined })
         enqueue(c.id)
       }
     },

@@ -1,0 +1,39 @@
+Authentication-Results:
+ mx.google.com; dkim=pass; spf=pass; dmarc=pass header.from=gmail.example
+From: Oussama Karoui <oussama.karoui@gmail.example>
+To: Service RH <rh@atlasbank.example>
+Subject: Candidature =?utf-8?q?=E2=80=93_analyste_cr=C3=A9dit?=
+Date: Sat, 31 Oct 2026 00:00:00 -0000
+Message-ID: <179349068902.251.2351049326875565540@mail.example>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============2029336893623815300=="
+
+--===============2029336893623815300==
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+Bonjour,
+Veuillez trouver ci-joint mon CV et ma lettre de motivation.
+Cordialement,
+Oussama Karoui
+
+--===============2029336893623815300==
+Content-Type: application/octet-stream
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="CV_Oussama_Karoui.pdf.exe"
+MIME-Version: 1.0
+
+SFIgQXNzaXN0YW50IHNlY3VyaXR5IHRlc3QgZml4dHVyZS4gVGhpcyBmaWxlIGlzIHBsYWluIHRl
+eHQgYW5kIGRvZXMgbm90aGluZy4NCg==
+
+--===============2029336893623815300==
+Content-Type: application/octet-stream
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename*=utf-8''Lettre_motivation_%E2%80%AEfdp.scr
+MIME-Version: 1.0
+
+SFIgQXNzaXN0YW50IHNlY3VyaXR5IHRlc3QgZml4dHVyZS4gVGhpcyBmaWxlIGlzIHBsYWluIHRl
+eHQgYW5kIGRvZXMgbm90aGluZy4NCg==
+
+--===============2029336893623815300==--

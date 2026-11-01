@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react'
-import { Archive, ArchiveRestore, Download, Pencil, RotateCcw, Trash2, Upload, X } from 'lucide-react'
+import { AlertTriangle, Archive, ArchiveRestore, Download, Pencil, RotateCcw, Trash2, Upload, X } from 'lucide-react'
 import { needsReview } from '@shared/flags'
 import { PRESETS } from '@shared/presets'
 import { rankCandidates, type RankedCandidate } from '@shared/scoring'
@@ -143,7 +143,7 @@ export default function JobFilterPage({
   }
 
   const done = cands.filter((c) => c.status === 'done').length
-  const working = cands.filter((c) => c.status === 'pending' || c.status === 'processing').length
+  const working = cands.filter((c) => c.status === 'pending' || c.status === 'processing' || c.rescreen === 'running').length
   const shortlisted = [...ranked.ranked, ...ranked.rejected].filter((c) => c.hrDecision === 'shortlist')
   const review = [...ranked.ranked, ...ranked.rejected].filter((c) => needsReview(c))
   const lists: Record<Tab, RankedCandidate[]> = {
@@ -153,6 +153,7 @@ export default function JobFilterPage({
     review: applyAssistantFilter(review, assistantFilter)
   }
   const list = lists[tab]
+  const suggested = ranked.rejected.filter((c) => c.suggested).length
   const open = openId ? [...ranked.ranked, ...ranked.rejected].find((c) => c.id === openId) : null
 
   const tabBtn = (t: Tab, text: string, n: number): ReactNode => (
@@ -293,7 +294,7 @@ export default function JobFilterPage({
           <div className="flex items-center justify-between bg-stone-50 px-3 py-2">
             <div className="flex gap-1 rounded-lg bg-stone-200/50 p-0.5">
               {tabBtn('ranked', 'Ranked', lists.ranked.length)}
-              {tabBtn('rejected', 'Rejected', lists.rejected.length)}
+              {tabBtn('rejected', 'Rejections', lists.rejected.length)}
               {tabBtn('shortlist', 'Shortlist', lists.shortlist.length)}
               {lists.review.length > 0 && tabBtn('review', 'Needs review', lists.review.length)}
             </div>
@@ -307,6 +308,33 @@ export default function JobFilterPage({
               </button>
             )}
           </div>
+          {/* Flagged candidates sit at the bottom of Ranked; this keeps them from being buried unseen. */}
+          {tab === 'ranked' && lists.review.length > 0 && (
+            <button
+              onClick={() => setTab('review')}
+              className="flex w-full cursor-pointer items-center gap-2 border-t border-needs/30 bg-needs-soft px-4 py-2 text-left text-sm text-needs"
+            >
+              <AlertTriangle size={14} />
+              <span className="flex-1">
+                {lists.review.length === 1
+                  ? '1 candidate needs your review. They sit at the bottom of this list until you check them.'
+                  : `${lists.review.length} candidates need your review. They sit at the bottom of this list until you check them.`}
+              </span>
+              <span className="font-medium underline-offset-2 hover:underline">Review</span>
+            </button>
+          )}
+          {/* Auto rules only suggest; nobody is rejected until HR confirms. */}
+          {tab === 'rejected' && suggested > 0 && (
+            <div className="flex items-center gap-3 border-t border-stone-200 px-4 py-2 text-sm text-stone-600">
+              <span className="flex-1">
+                {suggested === 1 ? '1 rejection is' : `${suggested} rejections are`} suggested by your rules. Nothing is rejected until you
+                confirm.
+              </span>
+              <Button size="sm" variant="danger" onClick={() => void api.candidates.confirmRejections(job.id)}>
+                Confirm all {suggested}
+              </Button>
+            </div>
+          )}
           {list.map((c, i) => (
             <RankedRow
               key={c.id}
@@ -318,6 +346,7 @@ export default function JobFilterPage({
               onDecide={(d) => patchCand(c.id, { hrDecision: d, restored: d === 'reject' ? false : c.restored })}
               onRestore={() => patchCand(c.id, { restored: true, hrDecision: null })}
               onReveal={() => patchCand(c.id, { revealed: true })}
+              onRetry={() => api.candidates.retry(c.id)}
             />
           ))}
           {list.length === 0 && ranked.pending.length === 0 && (

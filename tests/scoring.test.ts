@@ -71,6 +71,19 @@ describe('weightedScore', () => {
 })
 
 describe('evaluateCandidate', () => {
+  it('only suggests auto rejections; HR confirms them (council review)', () => {
+    expect(evaluateCandidate(cand('a', analysis(flat(55))), job()).suggested).toBe(true)
+    const confirmed = evaluateCandidate(
+      cand('a', analysis(flat(55)), { hrDecision: 'reject', rejection: { reason: 'Below threshold (55 < 60) · confirmed by HR' } as never }),
+      job({ threshold: 40 })
+    )
+    expect(confirmed).toMatchObject({ rejected: true, suggested: false, reason: 'Below threshold (55 < 60) · confirmed by HR' })
+  })
+  it('lets an HR decision outrank every auto rule', () => {
+    const e = evaluateCandidate(cand('a', analysis(flat(90), 'not_met'), { hrDecision: 'shortlist' }), job())
+    expect(e).toMatchObject({ rejected: false, suggested: false, note: 'Shortlisted by HR · Missing must-have: Finance degree' })
+    expect(evaluateCandidate(cand('a', analysis(flat(50)), { hrDecision: 'maybe' }), job()).rejected).toBe(false)
+  })
   it('rejects a missing must-have', () => {
     const e = evaluateCandidate(cand('a', analysis(flat(90), 'not_met')), job())
     expect(e.rejected).toBe(true)
@@ -91,7 +104,7 @@ describe('evaluateCandidate', () => {
   })
   it('rejects below threshold', () => {
     const e = evaluateCandidate(cand('a', analysis(flat(55))), job())
-    expect(e).toEqual({ score: 55, rejected: true, reason: 'Below threshold (55 < 60)' })
+    expect(e).toEqual({ score: 55, rejected: true, reason: 'Below threshold (55 < 60)', suggested: true, note: null })
   })
   it('keeps below-threshold candidates when that toggle is off', () => {
     const e = evaluateCandidate(cand('a', analysis(flat(55))), job({ autoRejectBelowThreshold: false }))

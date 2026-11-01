@@ -1,5 +1,6 @@
 import { ImapFlow } from 'imapflow'
 import nodemailer from 'nodemailer'
+import { addressOf } from '../../shared/address'
 
 export interface GmailAuth {
   user: string
@@ -60,8 +61,7 @@ export async function fetchInbox(a: GmailAuth, limit = 30): Promise<Buffer[]> {
 // Replies go where the sender asked (Reply-To), as in any mail client; a different domain is flagged
 // and the send confirmation names the real recipient.
 export function replyAddress(e: { from: string; replyTo?: string }): string {
-  const target = e.replyTo || e.from
-  return target.match(/<([^>]+)>/)?.[1] ?? target.trim()
+  return addressOf(e.replyTo || e.from)
 }
 
 export async function sendReply(

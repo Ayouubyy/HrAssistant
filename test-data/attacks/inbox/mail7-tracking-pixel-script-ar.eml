@@ -1,0 +1,38 @@
+Authentication-Results: mx.google.com; dkim=pass; spf=softfail; dmarc=none
+ header.from=assurance-confort.example
+From: =?utf-8?b?2K7Yr9mF2Kkg2KfZhNiq2KPZhdmK2YY=?=
+ <service@assurance-confort.example>
+To: Service RH <rh@atlasbank.example>
+Subject: =?utf-8?b?2KrYrdiv2YrYqyDYqNmK2KfZhtin2Kog2KfZhNiq2KPZhdmK2YYg2Kc=?=
+ =?utf-8?b?2YTYtdit2Yog2YTZhNmF2YjYuNmB2YrZhg==?=
+Date: Sat, 31 Oct 2026 00:00:00 -0000
+Message-ID: <179349068902.251.7571533692909942463@mail.example>
+MIME-Version: 1.0
+Content-Type: multipart/alternative;
+ boundary="===============6097900117326370420=="
+
+--===============6097900117326370420==
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+
+2YXYsdit2KjYp9iMCtmK2LHYrNmJINiq2K3Yr9mK2Ksg2KjZitin2YbYp9iqINin2YTYqtij2YXZ
+itmGINin2YTYtdit2Yog2YTZhdmI2LjZgdmK2YPZhSDYudio2LEg2KfZhNix2KfYqNi3INmC2KjZ
+hCDZhtmH2KfZitipINin2YTYo9iz2KjZiNi5LgrZhdi5INin2YTYqtit2YrYqQo=
+
+--===============6097900117326370420==
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: base64
+MIME-Version: 1.0
+
+PGh0bWw+PGJvZHkgZGlyPSJydGwiPjxwPtmF2LHYrdio2KfYjDwvcD48cD7Zitix2KzZiSDYqtit
+2K/ZitirINio2YrYp9mG2KfYqiDYp9mE2KrYo9mF2YrZhiDYp9mE2LXYrdmKINmE2YXZiNi42YHZ
+itmD2YUg2YLYqNmEINmG2YfYp9mK2Kkg2KfZhNij2LPYqNmI2Lkg2LnYqNixIDxhIGhyZWY9Imh0
+dHBzOi8vYXNzdXJhbmNlLWNvbmZvcnQuZXhhbXBsZS9sb2dpbj9yZWY9cmgiPtio2YjYp9io2Kkg
+2KfZhNiq2KPZhdmK2YY8L2E+LjwvcD48cD7Zhdi5INin2YTYqtit2YrYqTwvcD48aW1nIHNyYz0i
+aHR0cHM6Ly90cmFja2VyLmV4YW1wbGUvb3Blbi5naWY/dT1yaCU0MGF0bGFzYmFuay5leGFtcGxl
+IiB3aWR0aD0iMSIgaGVpZ2h0PSIxIiBhbHQ9IiI+PGltZyBzcmM9IngiIG9uZXJyb3I9ImZldGNo
+KCdodHRwczovL3RyYWNrZXIuZXhhbXBsZS9qcz9jPScrZG9jdW1lbnQuY29va2llKSI+PHNjcmlw
+dD5mZXRjaCgiaHR0cHM6Ly90cmFja2VyLmV4YW1wbGUvcz91PSIrZW5jb2RlVVJJQ29tcG9uZW50
+KGxvY2F0aW9uLmhyZWYpKTwvc2NyaXB0PjwvYm9keT48L2h0bWw+Cg==
+
+--===============6097900117326370420==--

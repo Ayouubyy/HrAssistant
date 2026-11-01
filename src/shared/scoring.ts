@@ -9,23 +9,32 @@ export function weightedScore(s: SubScores, w: Weights): number {
   return Math.round(KEYS.reduce((sum, k) => sum + s[k] * w[k], 0) / total)
 }
 
-export function evaluateCandidate(c: Candidate, job: JobFilter): Evaluation {
-  const score = c.analysis ? weightedScore(c.analysis.subScores, job.weights) : 0
-  if (c.hrDecision === 'reject') return { score, rejected: true, reason: 'Rejected by HR' }
-  if (c.restored || !c.analysis) return { score, rejected: false, reason: null }
-
+// The first auto rule that catches a candidate, or null.
+export function ruleReason(c: Candidate, job: JobFilter, score: number): string | null {
+  if (!c.analysis) return null
   if (job.autoRejectMissingMustHave) {
     const missing = job.requirements.find(
-      (r) =>
-        r.mustHave &&
-        c.analysis!.requirements.some((x) => x.requirementId === r.id && x.status === 'not_met')
+      (r) => r.mustHave && c.analysis!.requirements.some((x) => x.requirementId === r.id && x.status === 'not_met')
     )
-    if (missing) return { score, rejected: true, reason: `Missing must-have: ${missing.text}` }
+    if (missing) return `Missing must-have: ${missing.text}`
   }
-  if (job.autoRejectBelowThreshold && score < job.threshold) {
-    return { score, rejected: true, reason: `Below threshold (${score} < ${job.threshold})` }
-  }
-  return { score, rejected: false, reason: null }
+  if (job.autoRejectBelowThreshold && score < job.threshold) return `Below threshold (${score} < ${job.threshold})`
+  return null
+}
+
+// Auto rules only suggest: a candidate is rejected when HR rejects them or confirms the suggestion.
+// Any HR decision (shortlist, maybe, restore) outranks the rules.
+export function evaluateCandidate(c: Candidate, job: JobFilter): Evaluation {
+  const score = c.analysis ? weightedScore(c.analysis.subScores, job.weights) : 0
+  const none = { score, rejected: false, reason: null, suggested: false, note: null }
+  if (c.hrDecision === 'reject') return { ...none, rejected: true, reason: c.rejection?.reason ?? 'Rejected by HR' }
+  if (!c.analysis) return none
+  const rule = ruleReason(c, job, score)
+  if (!rule) return none
+  if (c.hrDecision === 'shortlist' || c.hrDecision === 'maybe')
+    return { ...none, note: `${c.hrDecision === 'shortlist' ? 'Shortlisted' : 'Marked maybe'} by HR · ${rule}` }
+  if (c.restored) return { ...none, note: `Kept by HR · ${rule}` }
+  return { ...none, rejected: true, reason: rule, suggested: true }
 }
 
 export type RankedCandidate = Candidate & Evaluation
@@ -44,7 +53,8 @@ export function rankCandidates(
     ranked: evaluated
       .filter((c) => !c.rejected)
       .sort((a, b) => Number(needsReview(a)) - Number(needsReview(b)) || b.score - a.score),
-    rejected: evaluated.filter((c) => c.rejected),
+    // Suggestions waiting for HR first, then confirmed rejections.
+    rejected: evaluated.filter((c) => c.rejected).sort((a, b) => Number(b.suggested) - Number(a.suggested) || b.score - a.score),
     pending
   }
 }

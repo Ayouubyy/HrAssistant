@@ -1,0 +1,24 @@
+Authentication-Results: mx.google.com; dkim=pass
+ header.i=@atlasbank-tn.example; spf=pass
+ smtp.mailfrom=rh@atlasbank-tn.example; dmarc=pass (p=NONE)
+ header.from=atlasbank-tn.example
+From: Direction des Ressources Humaines <rh@atlasbank-tn.example>
+To: Service RH <rh@atlasbank.example>
+Subject: Mise =?utf-8?q?=C3=A0_jour_du_RIB_de_paie_=E2=80=93?= M. Karim Ayadi
+Date: Sat, 31 Oct 2026 00:00:00 -0000
+Message-ID: <179349068901.251.5019589840566236876@mail.example>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+Bonjour,
+
+Suite =C3=A0 mon changement de banque, merci de verser mon salaire de ce mois=
+ sur le nouveau compte ci-dessous :
+RIB : 00 000 0000000000000 00 (compte de test)
+Titulaire : Karim Ayadi
+
+La modification doit =C3=AAtre faite avant la cl=C3=B4ture de la paie demain.
+
+Cordialement,
+Karim Ayadi, Direction financi=C3=A8re

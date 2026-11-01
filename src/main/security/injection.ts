@@ -1,3 +1,4 @@
+import { createHash, randomBytes } from 'crypto'
 import type { ReviewFlag } from '../../shared/types'
 
 // Zero-width, bidi-control and other invisible characters used to split words past a filter.
@@ -76,6 +77,20 @@ export function scanInjection(text: string, where = 'This CV'): ReviewFlag[] {
   }))
 }
 
+const DELIMITER = /(?:<|&lt;|＜)\s*\/?\s*(?:cv_document|email_document|record)\b(?:[^>]*?(?:>|&gt;|＞))?/gi
+
 // Our prompt delimiters must never appear inside untrusted text, or it could close the block early.
-export const stripDelimiters = (text: string): string =>
-  text.replace(/<\/?\s*(cv_document|email_document|record)\b[^>]*>/gi, '')
+// Stripped until nothing changes, so a nested "</cv_<cv_document>document>" can't rebuild one.
+export function stripDelimiters(text: string): string {
+  let out = text
+  for (let prev = ''; prev !== out; ) {
+    prev = out
+    out = out.replace(DELIMITER, '')
+  }
+  return out
+}
+
+// A per-launch secret makes each block's id unpredictable, so even a closing tag that got past
+// stripDelimiters can't carry the right id. The same text gets the same id within a session.
+const SALT = randomBytes(16)
+export const boundaryId = (text: string): string => createHash('sha256').update(SALT).update(text).digest('hex').slice(0, 10)

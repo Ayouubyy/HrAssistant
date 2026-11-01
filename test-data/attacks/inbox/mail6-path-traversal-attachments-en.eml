@@ -1,0 +1,50 @@
+Authentication-Results:
+ mx.google.com; dkim=pass; spf=pass; dmarc=pass header.from=gmail.example
+From: Salma Riahi <salma.riahi@gmail.example>
+To: Service RH <rh@atlasbank.example>
+Subject: Application =?utf-8?b?4oCT?= credit analyst
+Date: Sat, 31 Oct 2026 00:00:00 -0000
+Message-ID: <179349068902.251.106589981965082174@mail.example>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============0241850292034700106=="
+
+--===============0241850292034700106==
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+Hello,
+Please find my documents attached.
+Best regards,
+Salma Riahi
+
+--===============0241850292034700106==
+Content-Type: text/plain
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename="../../../../hr-assistant/data/jobs.json"
+MIME-Version: 1.0
+
+SFIgQXNzaXN0YW50IHNlY3VyaXR5IHRlc3QgZml4dHVyZS4gVGhpcyBmaWxlIGlzIHBsYWluIHRl
+eHQgYW5kIGRvZXMgbm90aGluZy4NCg==
+
+--===============0241850292034700106==
+Content-Type: text/plain
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename*0*=us-ascii''..%5C..%5C..%5CMicrosoft%5CWindows%5CStart%20Menu%5CPr;
+ filename*1*=ograms%5CStartup%5Cnote.txt
+MIME-Version: 1.0
+
+SFIgQXNzaXN0YW50IHNlY3VyaXR5IHRlc3QgZml4dHVyZS4gVGhpcyBmaWxlIGlzIHBsYWluIHRl
+eHQgYW5kIGRvZXMgbm90aGluZy4NCg==
+
+--===============0241850292034700106==
+Content-Type: application/pdf
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="CON.pdf"
+MIME-Version: 1.0
+
+SFIgQXNzaXN0YW50IHNlY3VyaXR5IHRlc3QgZml4dHVyZS4gVGhpcyBmaWxlIGlzIHBsYWluIHRl
+eHQgYW5kIGRvZXMgbm90aGluZy4NCg==
+
+--===============0241850292034700106==--

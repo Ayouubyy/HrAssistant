@@ -8,5 +8,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   concurrency: 2,
   companyDomains: [],
   autoLockMinutes: 10,
-  retentionDays: 0
+  retentionDays: 0,
+  freeTierAcknowledged: false
 }

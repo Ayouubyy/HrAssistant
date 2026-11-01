@@ -5,7 +5,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import JSZip from 'jszip'
 import nodemailer, { type SendMailOptions } from 'nodemailer'
-import { Document, Packer, Paragraph, TextRun, type IRunOptions } from 'docx'
+import { Document, Packer, Paragraph, ShadingType, Table, TableCell, TableRow, TextRun, WidthType, type IRunOptions } from 'docx'
 
 const OUT = join(__dirname, '..', 'test-data', 'attacks')
 const INBOX = join(OUT, 'inbox')
@@ -51,12 +51,19 @@ const hidden = (text: string, opts: Partial<IRunOptions>): Paragraph => new Para
 // --- minimal PDFs, written by hand so the hidden-text tricks are exact ---
 const pdfEscape = (s: string): string => s.replace(/[\\()]/g, (c) => `\\${c}`).replace(/[^\x20-\x7e]/g, '?')
 
-function pdf(name: string, visible: string[], opts: { tiny?: string; white?: string; invisible?: string; title?: string; js?: boolean } = {}): void {
+function pdf(
+  name: string,
+  visible: string[],
+  opts: { tiny?: string; white?: string; invisible?: string; title?: string; js?: boolean; sidebar?: string[] } = {}
+): void {
   const lines = visible.flatMap((l) => l.match(/.{1,85}(\s|$)/g) ?? [l])
   let content = `BT /F1 11 Tf 50 780 Td 15 TL\n${lines.map((l) => `(${pdfEscape(l.trim())}) Tj T*`).join('\n')}\nET\n`
   if (opts.tiny) content += `BT /F1 1 Tf 50 60 Td (${pdfEscape(opts.tiny)}) Tj ET\n`
   if (opts.white) content += `q 1 1 1 rg BT /F1 10 Tf 50 80 Td (${pdfEscape(opts.white)}) Tj ET Q\n`
   if (opts.invisible) content += `BT 3 Tr /F1 10 Tf 50 100 Td (${pdfEscape(opts.invisible)}) Tj ET\n`
+  // An honest template: a petrol sidebar with white text on it, the way many CV designs look.
+  if (opts.sidebar)
+    content += `q 0.12 0.31 0.37 rg 0 0 160 842 re f Q\nq 1 1 1 rg BT /F1 9 Tf 12 400 Td 12 TL\n${opts.sidebar.map((l) => `(${pdfEscape(l)}) Tj T*`).join('\n')}\nET Q\n`
   const objs: string[] = [
     `<< /Type /Catalog /Pages 2 0 R${opts.js ? ' /OpenAction 6 0 R' : ''} >>`,
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
@@ -86,6 +93,28 @@ const PDF_CV = [
   'Skills: financial analysis, IFRS 9, Basel III, Excel, Power BI.',
   'Languages: French (fluent), Arabic (native), English (professional).'
 ]
+
+const SIDEBAR = ['Skills', 'Financial analysis, IFRS 9, Basel III', 'Excel, Power BI, SQL', 'Certifications', 'CFA Level II (2021)', 'Languages', 'French, Arabic, English']
+
+// Honest dark-sidebar templates (council review): white text on a dark background is visible, so it's
+// scored and not flagged.
+async function sidebars(): Promise<void> {
+  pdf('cv-dark-sidebar.pdf', PDF_CV, { sidebar: SIDEBAR })
+  const cell = (children: Paragraph[], fill?: string): TableCell =>
+    new TableCell({
+      children,
+      width: { size: fill ? 30 : 70, type: WidthType.PERCENTAGE },
+      shading: fill ? { fill, type: ShadingType.CLEAR, color: 'auto' } : undefined
+    })
+  const row = new TableRow({
+    children: [
+      cell(SIDEBAR.map((t) => new Paragraph({ children: [run(t, { color: 'FFFFFF' })] })), '1F4E5F'),
+      cell(['Sami Rahmouni', ...BASE_FR].map((t) => new Paragraph({ children: [run(t)] })))
+    ]
+  })
+  const doc = new Document({ sections: [{ children: [new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [row] })] }] })
+  writeFileSync(join(OUT, 'cv-dark-sidebar.docx'), await Packer.toBuffer(doc))
+}
 
 // The demo job description, pasted wholesale into cv-jd-copy.docx.
 const JD = readFileSync(join(__dirname, '..', 'test-data', 'jobs', 'credit-analyst-fr.txt'), 'utf8')
@@ -142,6 +171,33 @@ async function cvs(): Promise<void> {
     ['fatima', 'فاطمة الزهراء العلوي', 'Analyste crédit']
   ]
   for (const [id, name, title] of people) await docx(`cv-bias-${id}.docx`, [name, `${id}@mail.ma`, title], BASE_FR.slice(1))
+  await biasSets()
+}
+
+// Two more CVs for the bias check (council review: one CV was weak evidence): a weaker fit in English
+// and a partial fit in French, each under the same four names.
+const BIAS_PEOPLE: [string, string][] = [
+  ['mohamed', 'Mohamed Ben Ali'],
+  ['marie', 'Marie Dupont'],
+  ['john', 'John Smith'],
+  ['fatima', 'فاطمة الزهراء العلوي']
+]
+const BASE_FR_PARTIAL = [
+  'Chargée de clientèle entreprises',
+  'Expérience',
+  '2021–2025 · Chargé de clientèle PME, Société Générale Maroc, Rabat : suivi d’un portefeuille de 80 entreprises, montage de demandes de crédit.',
+  'Formation',
+  'Licence en Économie et Gestion, Université Mohammed V (2021)',
+  'Compétences',
+  'Relation client, Excel, analyse de bilans simples',
+  'Langues',
+  'Français (courant), Arabe (langue maternelle)'
+]
+async function biasSets(): Promise<void> {
+  for (const [id, name] of BIAS_PEOPLE) {
+    await docx(`cv-bias2-${id}.docx`, [name, `${id}@mail.ma`], BASE_EN)
+    await docx(`cv-bias3-${id}.docx`, [name, `${id}@mail.ma`], BASE_FR_PARTIAL)
+  }
 }
 
 async function emails(): Promise<void> {
@@ -226,6 +282,13 @@ async function emails(): Promise<void> {
 
 async function main(): Promise<void> {
   mkdirSync(INBOX, { recursive: true })
+  // --only-new writes just the fixtures added after the first set, leaving the committed ones untouched.
+  if (process.argv.includes('--only-new')) {
+    await sidebars()
+    await biasSets()
+    return
+  }
+  await sidebars()
   await cvs()
   await emails()
   console.log(`wrote attack fixtures to ${OUT}`)

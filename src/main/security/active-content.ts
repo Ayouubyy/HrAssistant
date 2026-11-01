@@ -1,3 +1,4 @@
+import { constants, inflateRawSync } from 'zlib'
 import JSZip from 'jszip'
 import type { ReviewFlag } from '../../shared/types'
 
@@ -25,6 +26,9 @@ export interface ZipEntry {
   name: string
   compressed: number
   uncompressed: number
+  // compression method (0 stored, 8 deflate) and where the entry's local header starts
+  method?: number
+  offset?: number
 }
 
 // Reads a zip's central directory without decompressing anything.
@@ -47,18 +51,49 @@ export function zipEntries(buf: Buffer): ZipEntry[] {
     const nameLen = buf.readUInt16LE(p + 28)
     const extra = buf.readUInt16LE(p + 30)
     const comment = buf.readUInt16LE(p + 32)
-    out.push({ name: buf.toString('utf8', p + 46, p + 46 + nameLen), compressed, uncompressed })
+    out.push({
+      name: buf.toString('utf8', p + 46, p + 46 + nameLen),
+      compressed,
+      uncompressed,
+      method: buf.readUInt16LE(p + 10),
+      offset: buf.readUInt32LE(p + 42)
+    })
     p += 46 + nameLen + extra + comment
   }
   return out
 }
 
-// Refuses zip bombs before mammoth or jszip inflate anything.
-export function checkZipBomb(entries: ZipEntry[]): void {
+const BOMB = "This Word file expands to an unusual size, so it wasn't opened."
+
+// Refuses zip bombs before mammoth or jszip inflate anything. The declared sizes can lie, so with the
+// file's bytes every entry is also inflated for real, and inflation stops at the 50 MB limit.
+export function checkZipBomb(entries: ZipEntry[], buf?: Buffer): void {
   const total = entries.reduce((s, e) => s + e.uncompressed, 0)
   const packed = entries.reduce((s, e) => s + e.compressed, 0)
   if (total > LIMITS.docxUncompressed || (packed > 0 && total / packed > LIMITS.docxRatio && total > 5 * 1024 * 1024))
-    throw new TooLargeError("This Word file expands to an unusual size, so it wasn't opened.")
+    throw new TooLargeError(BOMB)
+  if (buf) inflatedSize(buf, entries)
+}
+
+function inflatedSize(buf: Buffer, entries: ZipEntry[]): number {
+  let total = 0
+  for (const e of entries) {
+    const at = e.offset ?? -1
+    if (at < 0 || at + 30 > buf.length || buf.readUInt32LE(at) !== 0x04034b50) continue
+    const start = at + 30 + buf.readUInt16LE(at + 26) + buf.readUInt16LE(at + 28)
+    const data = buf.subarray(start, Math.min(buf.length, start + e.compressed))
+    if (e.method === 0) total += data.length
+    else if (e.method === 8) {
+      try {
+        total += inflateRawSync(data, { maxOutputLength: LIMITS.docxUncompressed - total + 1, finishFlush: constants.Z_SYNC_FLUSH }).length
+      } catch (err) {
+        if (err instanceof RangeError || (err as { code?: string }).code === 'ERR_BUFFER_TOO_LARGE') throw new TooLargeError(BOMB)
+        // a damaged entry: the Word reader reports it
+      }
+    }
+    if (total > LIMITS.docxUncompressed) throw new TooLargeError(BOMB)
+  }
+  return total
 }
 
 const PDF_MARKERS: { re: RegExp; severity: ReviewFlag['severity']; what: string }[] = [

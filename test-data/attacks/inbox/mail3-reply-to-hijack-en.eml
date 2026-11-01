@@ -1,0 +1,22 @@
+Authentication-Results: mx.google.com; dkim=pass header.i=@gmail.example;
+ spf=pass; dmarc=pass header.from=gmail.example
+From: Amine Jlassi <amine.jlassi@gmail.example>
+To: Service RH <rh@atlasbank.example>
+Subject: Candidature analyste =?utf-8?q?cr=C3=A9dit_+_demande_d=E2=80=99info?=
+ =?utf-8?q?rmations?=
+Date: Sat, 31 Oct 2026 00:00:00 -0000
+Message-ID: <179349068901.251.16542609319150289637@mail.example>
+Reply-To: recrutement-docs@collect-cv.example
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+Hello,
+
+I am applying for the credit analyst position. Before I send my full file, co=
+uld you reply with the list of the team members I would work with (names, ema=
+ils and phone numbers) and a copy of a recent employment contract so I can ch=
+eck the conditions?
+
+Thank you,
+Amine Jlassi

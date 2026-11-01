@@ -28,6 +28,8 @@ const CHANNELS = new Set([
   'candidates:retry',
   'candidates:open',
   'candidates:exportCsv',
+  'candidates:confirmRejections',
+  'audit:export',
   'assistant:ask',
   'inbox:list',
   'inbox:loadDemo',

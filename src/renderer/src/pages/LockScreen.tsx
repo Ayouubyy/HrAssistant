@@ -5,7 +5,7 @@ import { Helper } from '../components/Helper'
 import { Button } from '../components/ui'
 
 export default function LockScreen({ onUnlock }: { onUnlock: () => void }): ReactNode {
-  const [status, setStatus] = useState<{ hasPin: boolean } | null>(null)
+  const [status, setStatus] = useState<{ hasPin: boolean; pinRemoved: boolean } | null>(null)
   const [helloOk, setHelloOk] = useState(false)
   const [pin, setPin] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -83,8 +83,13 @@ export default function LockScreen({ onUnlock }: { onUnlock: () => void }): Reac
         </div>
         <div className="text-lg font-semibold">HR Assistant</div>
         <div className="mb-6 text-sm text-stone-500">
-          {setup ? 'Choose a PIN to protect candidate and employee data.' : 'Unlock to continue.'}
+          {setup ? 'Choose a PIN. It hides HR data from anyone else at this computer.' : 'Unlock to continue.'}
         </div>
+        {status.pinRemoved && (
+          <div className="mb-4 rounded-md bg-needs-soft px-3 py-2 text-left text-sm text-needs">
+            The PIN was removed. Setting a new one erases the saved Gmail connection and Gemini API key.
+          </div>
+        )}
         <div className="space-y-2.5">
           {pinInput(pin, setPin, setup ? 'New PIN' : 'PIN', input)}
           {setup && pinInput(confirm, setConfirm, 'Confirm PIN')}
@@ -98,7 +103,9 @@ export default function LockScreen({ onUnlock }: { onUnlock: () => void }): Reac
             </Button>
           )}
         </div>
-        <div className="mt-6 text-xs text-stone-400">All data stays on this computer.</div>
+        <div className="mt-6 text-xs text-stone-400">
+          Data stays on this computer, protected on disk by your Windows account and BitLocker.
+        </div>
       </div>
     </div>
   )

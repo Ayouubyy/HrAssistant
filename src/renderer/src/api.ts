@@ -5,7 +5,7 @@ const call = <T>(channel: string, ...args: unknown[]): Promise<T> =>
 
 export const api = {
   lock: {
-    status: () => call<{ hasPin: boolean; unlocked: boolean; waitSeconds: number }>('lock:status'),
+    status: () => call<{ hasPin: boolean; pinRemoved: boolean; unlocked: boolean; waitSeconds: number }>('lock:status'),
     helloAvailable: () => call<boolean>('lock:helloAvailable'),
     setPin: (pin: string) => call<void>('lock:setPin', pin),
     unlock: (pin: string) => call<boolean>('lock:unlock', pin),
@@ -37,7 +37,11 @@ export const api = {
     remove: (id: string) => call<void>('candidates:delete', id),
     retry: (id: string) => call<void>('candidates:retry', id),
     open: (id: string) => call<void>('candidates:open', id),
-    exportCsv: (jobId: string) => call<boolean>('candidates:exportCsv', jobId)
+    exportCsv: (jobId: string) => call<boolean>('candidates:exportCsv', jobId),
+    confirmRejections: (jobId: string) => call<number>('candidates:confirmRejections', jobId)
+  },
+  audit: {
+    exportCsv: () => call<boolean>('audit:export')
   },
   inbox: {
     list: () => call<EmailItem[]>('inbox:list'),

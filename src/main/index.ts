@@ -3,7 +3,7 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { createDb } from './store/db'
-import { Ctx, push, registerIpc, settingsHandlers } from './ipc'
+import { Ctx, isAppUrl, push, registerIpc, settingsHandlers } from './ipc'
 import { createServices, jobHandlers } from './jobs'
 import { applyRetention } from './store/retention'
 import { createInbox, inboxHandlers } from './inbox/handlers'
@@ -62,7 +62,7 @@ function createWindow(): void {
 
   // A file dropped anywhere outside a drop zone must not replace the app with a file viewer.
   mainWindow.webContents.on('will-navigate', (e, url) => {
-    if (!url.startsWith(process.env['ELECTRON_RENDERER_URL'] ?? '\u0000')) e.preventDefault()
+    if (!isAppUrl(url)) e.preventDefault()
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {

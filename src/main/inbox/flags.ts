@@ -16,9 +16,13 @@ export function emailFlags(e: EmailItem, settings: AppSettings): ReviewFlag[] {
         }
       ]
     : []
+  const duplicate: ReviewFlag[] = e.duplicateMessageId
+    ? [{ code: 'duplicate_message_id', severity: 'warn', detail: 'Another email in the inbox has the same Message-ID but different content.' }]
+    : []
   return mergeFlags(
     scanInjection(`${e.subject}\n${e.text}`, 'This email'),
     model,
+    duplicate,
     e.auth ? authFlags(e.auth) : [],
     senderFlags(e.from, settings.companyDomains),
     replyToFlags(e.from, e.replyTo),

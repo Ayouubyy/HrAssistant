@@ -56,7 +56,7 @@ Details, decisions and what's left are in `SECURITY-THREATS.md` (local file, not
 - Default model: `gemini-flash-lite-latest` (about 1 s per CV). `gemini-flash-latest` is smarter but can take minutes at busy times.
 - In **Settings → Company email domains**, enter `atlasbank.ma` (the demo company). Lookalike-domain checks and policy sharing depend on it.
 - Security demo: `npx tsx scripts/make-attack-fixtures.ts` writes CVs with hidden instructions, macros and JavaScript, plus spoofed and hostile emails, into `test-data/attacks/`. Drop `cv-injection-white-fr.docx` into a job filter, and load `test-data/attacks/inbox` in the inbox.
-- `npx tsx scripts/security-smoke.ts` runs every clean and attack CV through the real AI and prints the flags (clean CVs should have no high flag). `npx tsx scripts/bias-check.ts` checks that changing only the candidate's name moves the score by 5 points at most.
+- `npx tsx scripts/security-smoke.ts` runs every clean and attack CV through the real AI and prints the flags (clean CVs should have no high flag). `npx tsx scripts/bias-check.ts` screens 3 CVs under 4 names with 3 seeds and fails if the name moves the score (mean gap over 3 points, or any gap over 8). The app removes the candidate's name before the CV is sent, so this mainly checks that the removal works; it also prints how much the same CV moves between seeds. It's a regression check, not proof of fairness.
 
 ## Tests
 

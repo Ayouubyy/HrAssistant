@@ -5,7 +5,8 @@ export interface ChatMessage {
 
 export interface AIProvider {
   readonly model: string
-  json<T>(opts: { system: string; prompt: string; schema: object }): Promise<T>
+  // second: an independent second reading (another seed, more temperature) for the double-check
+  json<T>(opts: { system: string; prompt: string; schema: object; second?: boolean }): Promise<T>
   text(opts: { system: string; messages: ChatMessage[] }): Promise<string>
 }
 

@@ -1,8 +1,8 @@
 import { app, dialog, shell } from 'electron'
-import { existsSync, rmSync } from 'fs'
-import { join } from 'path'
-import type { EmailItem } from '../../shared/types'
-import { cacheKey, sha256, type Cached } from '../ai/cache'
+import { existsSync, readFileSync, rmSync } from 'fs'
+import { extname, join } from 'path'
+import type { EmailItem, JobFilter, ReviewFlag } from '../../shared/types'
+import { cacheId, cacheKey, removeCached, sha256, type Cached } from '../ai/cache'
 import { withRetry } from '../ai/provider'
 import type { createPipeline } from '../cv/pipeline'
 import { push, type Ctx } from '../ipc'
@@ -10,11 +10,16 @@ import { getProvider } from '../jobs'
 import { getSettings } from '../store/settings'
 import { getSecret, setSecret } from '../store/secrets'
 import { emailFlags } from './flags'
-import { loadEmlFolder, parseEmail } from './eml'
+import { loadEmlFolder, parseAll } from './eml'
+import { parseEmailInWorker } from '../parse-host'
 import { createSerialRunner } from './runner'
 import { fetchInbox, replyAddress, sendReply, testGmail, type GmailAuth } from './gmail'
 import { MAIL_PROMPT_VERSION, policyFor, triageEmail } from './triage'
 import { assertId, assertIndex, assertString } from '../security/validate'
+import { checkZipBomb, scanDocx, scanPdfBytes, zipEntries } from '../security/active-content'
+import { defenderScan } from '../security/defender'
+import { logDecision } from '../store/audit'
+import { mailRef } from '../../shared/refs'
 
 function gmailAuth(): GmailAuth | null {
   const user = getSecret('gmailUser')
@@ -35,6 +40,7 @@ export function createInbox(
   store: (emails: EmailItem[]) => void
   triageAll: () => Promise<void>
   refreshFlags: () => void
+  retriage: (id: string) => Promise<void>
 } {
   const { db } = ctx
 
@@ -45,15 +51,20 @@ export function createInbox(
     return { ...e, flags, flagsDismissed: !!old?.flagsDismissed && same }
   }
 
+  const triageKey = (email: EmailItem, model: string): string => {
+    const settings = getSettings()
+    return cacheKey(
+      email.id,
+      MAIL_PROMPT_VERSION,
+      model,
+      sha256(policyFor(email, settings) + settings.requiredDocs.join('|') + settings.companyDomains.join('|'))
+    )
+  }
+
   async function triageOne(email: EmailItem): Promise<void> {
     const settings = getSettings()
     const ai = getProvider()
-    const key = cacheKey(
-      email.id,
-      MAIL_PROMPT_VERSION,
-      ai.model,
-      sha256(policyFor(email, settings) + settings.requiredDocs.join('|') + settings.companyDomains.join('|'))
-    )
+    const key = triageKey(email, ai.model)
     const cur = db.get<EmailItem>('emails', email.id)
     if (!cur) return
     let next: EmailItem
@@ -72,7 +83,11 @@ export function createInbox(
     store(emails) {
       for (const e of emails) {
         const old = db.get<EmailItem>('emails', e.id)
-        db.put('emails', withFlags(old ? { ...e, triage: old.triage } : e, old))
+        // Same Message-ID, different content: both are kept and both are marked.
+        const twins = e.messageId ? db.list<EmailItem>('emails').filter((x) => x.messageId === e.messageId && x.id !== e.id) : []
+        for (const t of twins) if (!t.duplicateMessageId) db.put('emails', withFlags({ ...t, duplicateMessageId: true }, t))
+        const next = { ...(old ? { ...e, triage: old.triage } : e), duplicateMessageId: twins.length > 0 || undefined }
+        db.put('emails', withFlags(next, old))
       }
       push(ctx, 'emails:changed', null)
     },
@@ -83,12 +98,41 @@ export function createInbox(
       })
       await Promise.all(workers)
     }),
+    // A fresh AI reading: the cached answer for this email is dropped first.
+    async retriage(id) {
+      const e = db.get<EmailItem>('emails', id)
+      if (!e) return
+      removeCached(join(ctx.dataDir, 'cache'), [cacheId(triageKey(e, getProvider().model))])
+      db.put('emails', { ...e, triage: undefined, triageError: undefined })
+      await this.triageAll()
+    },
     // Company domains changed: lookalike and display-name checks depend on them.
     refreshFlags() {
       for (const e of db.list<EmailItem>('emails')) db.put('emails', withFlags(e, e))
       push(ctx, 'emails:changed', null)
     }
   }
+}
+
+// What the CV checks find in an attachment. Only PDF and DOCX get the content scan; images and text can't carry code.
+async function attachmentRisks(path: string): Promise<string[]> {
+  const found: string[] = []
+  const ext = extname(path).toLowerCase()
+  try {
+    const data = readFileSync(path)
+    let flags: ReviewFlag[] = []
+    if (ext === '.pdf') flags = scanPdfBytes(data)
+    else if (ext === '.docx') {
+      const entries = zipEntries(data)
+      checkZipBomb(entries, data)
+      flags = await scanDocx(data, entries)
+    }
+    if (flags.length) found.push('active content (scripts, macros or embedded files)')
+  } catch {
+    found.push('a structure that couldn’t be checked')
+  }
+  if ((await defenderScan(path)) === 'threat') found.push('a threat found by Microsoft Defender')
+  return found
 }
 
 export function inboxHandlers(
@@ -114,7 +158,7 @@ export function inboxHandlers(
         properties: ['openDirectory']
       })
       if (r.canceled) return 0
-      const emails = await loadEmlFolder(r.filePaths[0], attachDir)
+      const emails = await loadEmlFolder(r.filePaths[0], attachDir, parseEmailInWorker)
       inbox.store(emails)
       void inbox.triageAll()
       return emails.length
@@ -135,8 +179,7 @@ export function inboxHandlers(
       const auth = gmailAuth()
       if (!auth) throw new Error('Connect Gmail first.')
       const raws = await fetchInbox(auth)
-      const settled = await Promise.allSettled(raws.map((r) => parseEmail(r, 'gmail', attachDir)))
-      const emails = settled.flatMap((s) => (s.status === 'fulfilled' ? [s.value] : []))
+      const emails = await parseAll(raws, 'gmail', attachDir, parseEmailInWorker)
       inbox.store(emails)
       void inbox.triageAll()
       return emails.length
@@ -161,14 +204,11 @@ export function inboxHandlers(
       })
       if (r.response !== 0) return false
       await sendReply(auth, { to, subject: e.subject, body, inReplyTo: e.messageId })
+      logDecision(ctx.dataDir, { action: 'send_reply', ref: mailRef(e.id), emailId: e.id, reason: `to ${to}` })
       return true
     },
     'inbox:triageAll': () => inbox.triageAll(),
-    'inbox:retriage': async (id: string) => {
-      const e = email(id)
-      db.put('emails', { ...e, triage: undefined, triageError: undefined })
-      await inbox.triageAll()
-    },
+    'inbox:retriage': (id: string) => inbox.retriage(email(id).id),
     'inbox:clear': () => {
       for (const e of db.list<EmailItem>('emails')) {
         db.remove('emails', e.id)
@@ -177,7 +217,14 @@ export function inboxHandlers(
       push(ctx, 'emails:changed', null)
     },
     'inbox:dismissFlags': (id: string) => {
-      const next = { ...email(id), flagsDismissed: true }
+      const e = email(id)
+      logDecision(ctx.dataDir, {
+        action: 'dismiss_flags',
+        ref: mailRef(e.id),
+        emailId: e.id,
+        reason: (e.flags ?? []).filter((f) => f.severity === 'high').map((f) => f.code).join(',')
+      })
+      const next = { ...e, flagsDismissed: true }
       db.put('emails', next)
       push(ctx, 'emails:updated', next)
     },
@@ -185,7 +232,23 @@ export function inboxHandlers(
       assertIndex(index)
       const a = email(emailId).attachments[index]
       if (!a?.path || !existsSync(a.path)) throw new Error('This attachment is no longer on this computer.')
-      if (a.openable) return void (await shell.openPath(a.path))
+      if (a.openable) {
+        // The same checks a CV gets before it opens: active content, then Microsoft Defender.
+        const found = await attachmentRisks(a.path)
+        if (found.length) {
+          const r = await dialog.showMessageBox({
+            type: 'warning',
+            buttons: ['Open anyway', 'Cancel'],
+            defaultId: 1,
+            cancelId: 1,
+            title: 'Open attachment',
+            message: `${a.fileName} contains ${found.join(' and ')}.`,
+            detail: 'Normal documents don’t. Open it only if you trust the sender.'
+          })
+          if (r.response !== 0) return
+        }
+        return void (await shell.openPath(a.path))
+      }
       const r = await dialog.showMessageBox({
         type: 'warning',
         buttons: ['Show in folder', 'Close'],
@@ -199,6 +262,7 @@ export function inboxHandlers(
     },
     'inbox:sendToScreening': async (emailId: string, jobId: string) => {
       assertId(jobId)
+      if (!db.get<JobFilter>('jobs', jobId)) throw new Error('Job filter not found.')
       const e = email(emailId)
       const added = await pipeline.addFiles(
         jobId,

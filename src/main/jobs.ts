@@ -3,16 +3,17 @@ import { app, dialog, shell } from 'electron'
 import { readFileSync, statSync, writeFileSync } from 'fs'
 import { extname, join } from 'path'
 import mammoth from 'mammoth'
-import { rankCandidates } from '../shared/scoring'
+import { cvRef } from '../shared/refs'
+import { evaluateCandidate, rankCandidates } from '../shared/scoring'
 import type { Candidate, EmailItem, JobFilter, PresetId } from '../shared/types'
 import { createCache } from './ai/cache'
 import { GeminiProvider } from './ai/gemini'
 import { NoApiKeyError, withRetry, type AIProvider } from './ai/provider'
 import { csvSeparator, toCsv } from './csv'
 import { askAssistant, type ChatContext } from './assistant/chat'
-import { extractRequirements } from './cv/prompts'
+import { CV_PROMPT_VERSION, extractRequirements } from './cv/prompts'
 import { createPipeline } from './cv/pipeline'
-import { extractText } from './cv/extract'
+import { extractInWorker } from './parse-host'
 import { push, type Ctx } from './ipc'
 import { checkSize, LIMITS } from './security/active-content'
 import { defenderScan } from './security/defender'
@@ -26,6 +27,7 @@ import {
   validatePaths,
   validateRef
 } from './security/validate'
+import { logDecision, readDecisions } from './store/audit'
 import { deleteCandidates } from './store/retention'
 import { getGeminiKey } from './store/secrets'
 import { getSettings } from './store/settings'
@@ -49,7 +51,8 @@ export function createServices(ctx: Ctx): {
     concurrency: () => getSettings().concurrency,
     doubleCheck: () => getSettings().doubleCheck,
     onUpdate: (c) => push(ctx, 'candidates:updated', c),
-    scan: defenderScan
+    scan: defenderScan,
+    extract: extractInWorker
   })
   return { cached, pipeline }
 }
@@ -58,7 +61,7 @@ async function readJobFile(path: string): Promise<string> {
   checkSize(statSync(path).size, LIMITS.cvBytes, 'file')
   const ext = extname(path).toLowerCase()
   if (ext === '.docx') return (await mammoth.extractRawText({ path })).value
-  if (ext === '.pdf') return (await extractText(path)).text
+  if (ext === '.pdf') return (await extractInWorker(path)).text
   return readFileSync(path, 'utf8')
 }
 
@@ -70,6 +73,41 @@ export function jobHandlers(ctx: Ctx, services: ReturnType<typeof createServices
     const c = db.get<Candidate>('candidates', id)
     if (!c) throw new Error('Candidate not found.')
     return c
+  }
+  const refOf = (c: Candidate): string =>
+    cvRef(db.list<Candidate>('candidates').filter((x) => x.jobId === c.jobId).findIndex((x) => x.id === c.id) + 1)
+  const settingsOf = (job: JobFilter): Record<string, unknown> => ({
+    weights: job.weights,
+    threshold: job.threshold,
+    autoRejectMissingMustHave: job.autoRejectMissingMustHave,
+    autoRejectBelowThreshold: job.autoRejectBelowThreshold,
+    promptVersion: CV_PROMPT_VERSION,
+    model: getSettings().model
+  })
+  // Every HR decision is applied here, logged, and a rejection keeps what it was based on, so moving a
+  // slider later doesn't change why someone was rejected.
+  const decide = (c: Candidate, patch: Partial<Candidate>): Candidate => {
+    const job = db.get<JobFilter>('jobs', c.jobId)
+    const next: Candidate = { ...c, ...patch, id: c.id }
+    const before = job ? evaluateCandidate(c, job) : null
+    const log = (action: string, reason?: string): void =>
+      logDecision(ctx.dataDir, { action, ref: refOf(c), jobId: c.jobId, candidateId: c.id, score: before?.score, reason, settings: job ? settingsOf(job) : undefined })
+    if ('hrDecision' in patch && patch.hrDecision !== c.hrDecision) {
+      if (patch.hrDecision === 'reject' && job && before) {
+        const reason = before.suggested ? `${before.reason} · confirmed by HR` : 'Rejected by HR'
+        next.rejection = { reason, score: before.score, at: new Date().toISOString(), threshold: job.threshold, weights: job.weights, model: getSettings().model, promptVersion: CV_PROMPT_VERSION }
+        log(before.suggested ? 'confirm_rejection' : 'reject', reason)
+      } else {
+        next.rejection = undefined
+        log(patch.hrDecision ?? 'clear_decision')
+      }
+    }
+    if (patch.restored && !c.restored) log('keep', before?.reason ?? undefined)
+    if (patch.revealed && !c.revealed) log('show_name')
+    if (patch.flagsDismissed && !c.flagsDismissed) log('dismiss_flags', (c.flags ?? []).filter((f) => f.severity === 'high').map((f) => f.code).join(','))
+    db.put('candidates', next)
+    push(ctx, 'candidates:updated', next)
+    return next
   }
   return {
     'jobs:list': () => db.list<JobFilter>('jobs').sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
@@ -154,11 +192,24 @@ export function jobHandlers(ctx: Ctx, services: ReturnType<typeof createServices
       if (!db.get<JobFilter>('jobs', jobId)) throw new Error('Job filter not found.')
       return pipeline.addFiles(jobId, validatePaths(paths), 'upload')
     },
-    'candidates:update': (id: string, patch: unknown) => {
-      const c = candidate(id)
-      const next = db.put('candidates', { ...c, ...validateCandidatePatch(patch), id })
-      push(ctx, 'candidates:updated', next)
-      return next
+    'candidates:update': (id: string, patch: unknown) => decide(candidate(id), validateCandidatePatch(patch)),
+    // HR confirms every rejection an auto rule suggested for this job.
+    'candidates:confirmRejections': (jobId: string) => {
+      assertId(jobId)
+      const job = db.get<JobFilter>('jobs', jobId)
+      if (!job) throw new Error('Job filter not found.')
+      const suggested = db.list<Candidate>('candidates').filter((c) => c.jobId === jobId && c.status === 'done' && evaluateCandidate(c, job).suggested)
+      for (const c of suggested) decide(c, { hrDecision: 'reject' })
+      return suggested.length
+    },
+    'audit:export': async () => {
+      const entries = readDecisions(ctx.dataDir)
+      const r = await dialog.showSaveDialog({ defaultPath: 'HR Assistant - decision log.csv', filters: [{ name: 'CSV', extensions: ['csv'] }] })
+      if (r.canceled || !r.filePath) return false
+      const header = ['When', 'Windows user', 'Action', 'Ref', 'Score', 'Reason', 'Settings']
+      const rows = entries.map((e) => [e.at, e.user, e.action, e.ref, e.score ?? '', e.reason ?? '', e.settings ? JSON.stringify(e.settings) : ''])
+      writeFileSync(r.filePath, '\ufeff' + toCsv([header, ...rows], csvSeparator(app.getSystemLocale())))
+      return true
     },
     'candidates:delete': (id: string) => {
       const c = candidate(id)
@@ -208,7 +259,7 @@ export function jobHandlers(ctx: Ctx, services: ReturnType<typeof createServices
           c.analysis?.identity.name ?? c.fileName,
           c.analysis?.identity.email ?? '',
           c.score,
-          c.rejected ? `Rejected: ${c.reason}` : 'Kept',
+          c.suggested ? `Suggested rejection (not confirmed): ${c.reason}` : c.rejected ? `Rejected: ${c.reason}` : c.note ? `Kept: ${c.note}` : 'Kept',
           c.hrDecision ?? '',
           c.analysis?.verdict ?? '',
           missing,

@@ -7,6 +7,7 @@ import type { AIProvider } from '../src/main/ai/provider'
 import { createPipeline } from '../src/main/cv/pipeline'
 import { createDb } from '../src/main/store/db'
 import { applyRetention, deleteCandidates } from '../src/main/store/retention'
+import { logDecision, readDecisions } from '../src/main/store/audit'
 import { needsReview } from '../src/shared/flags'
 import type { Candidate, JobFilter } from '../src/shared/types'
 
@@ -69,6 +70,46 @@ function setup(reply: (prompt: string) => unknown | Promise<unknown>, scan?: () 
 }
 
 describe('pipeline security', () => {
+  it('keeps an append-only decision log with refs and settings, no CV text (council review)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'hraudit-'))
+    logDecision(dir, { action: 'confirm_rejection', ref: 'CV-03', candidateId: 'c1', score: 41, reason: 'Below threshold (41 < 60) · confirmed by HR', settings: { threshold: 60 } })
+    logDecision(dir, { action: 'shortlist', ref: 'CV-01', candidateId: 'c2', score: 82 })
+    const log = readDecisions(dir)
+    expect(log.map((e) => e.action)).toEqual(['confirm_rejection', 'shortlist'])
+    expect(log[0]).toMatchObject({ ref: 'CV-03', score: 41, settings: { threshold: 60 } })
+    expect(typeof log[0].user).toBe('string')
+    expect(Date.parse(log[0].at)).not.toBeNaN()
+  })
+  it('raises hidden text to high only when it carries an attack (council review)', async () => {
+    const s = setup(() => good)
+    const list = await s.add('attacks/cv-injection-white-fr.docx', 'attacks/cv-dark-sidebar.docx')
+    const attack = list.find((c) => c.fileName.includes('white'))!
+    const sidebar = list.find((c) => c.fileName.includes('sidebar'))!
+    expect(attack.flags?.find((f) => f.code === 'hidden_text')?.severity).toBe('high')
+    expect(sidebar.flags?.some((f) => f.code === 'hidden_text')).toBeFalsy()
+    expect(needsReview(sidebar)).toBe(false)
+  })
+  it('a re-screen that fails keeps the previous result in the ranking (council review)', async () => {
+    let fail = false
+    const s = setup(() => {
+      if (fail) throw new Error('Gemini is busy')
+      return good
+    })
+    const [c] = await s.add('attacks/cv-clean-control.docx')
+    expect(c.status).toBe('done')
+    fail = true
+    s.db.put('jobs', { ...job, description: job.description + ' (edited)' })
+    s.pipeline.reanalyzeJob('j1')
+    await s.pipeline.idle()
+    const after = s.db.get<Candidate>('candidates', c.id)!
+    expect(after.status).toBe('done')
+    expect(after.rescreen).toBe('failed')
+    expect(after.analysis?.subScores.skills).toBe(75)
+    fail = false
+    await s.pipeline.retry(c.id)
+    await s.pipeline.idle()
+    expect(s.db.get<Candidate>('candidates', c.id)!.rescreen).toBeUndefined()
+  })
   it('T-05: an empty AI reply is retried once, then errors with no cache entry, and Retry works', async () => {
     let broken = true
     const s = setup(() => (broken ? {} : good))
@@ -90,7 +131,7 @@ describe('pipeline security', () => {
     expect(needsReview(c)).toBe(true)
     expect(c.flags?.map((f) => f.code)).toEqual(expect.arrayContaining(['hidden_text', 'injection_phrase']))
     expect(s.prompts[0]).not.toMatch(/Ignorez toutes les instructions/)
-    expect(s.prompts[0]).toContain('<cv_document>')
+    expect(s.prompts[0]).toMatch(/<cv_document id="[0-9a-f]{10}">/)
   })
 
   it('T-01 C: an injection the model reports is flagged', async () => {

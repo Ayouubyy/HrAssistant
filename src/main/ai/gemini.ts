@@ -32,14 +32,16 @@ export function translateError(e: unknown): unknown {
 export class GeminiProvider implements AIProvider {
   private client: GoogleGenAI
 
+  // seed: only the bias check changes it, to see whether a result holds across seeds
   constructor(
     apiKey: string,
-    readonly model: string
+    readonly model: string,
+    private readonly seed = 7
   ) {
     this.client = new GoogleGenAI({ apiKey, httpOptions: { timeout: 60000 } })
   }
 
-  async json<T>({ system, prompt, schema }: { system: string; prompt: string; schema: object }): Promise<T> {
+  async json<T>({ system, prompt, schema, second }: { system: string; prompt: string; schema: object; second?: boolean }): Promise<T> {
     try {
       const res = await this.client.models.generateContent({
         model: this.model,
@@ -48,9 +50,10 @@ export class GeminiProvider implements AIProvider {
           systemInstruction: system,
           responseMimeType: 'application/json',
           responseJsonSchema: schema,
-          temperature: 0.2,
-          // fixed seed: the same CV and job give the same scores more often (T-14)
-          seed: 7
+          temperature: second ? 0.7 : 0.2,
+          // fixed seed: the same CV and job give the same scores more often (T-14). The second
+          // reading uses another one, or it would repeat the first and never disagree.
+          seed: second ? this.seed + 94 : this.seed
         }
       })
       return parseModelJson(res.text ?? '') as T

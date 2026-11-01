@@ -148,8 +148,21 @@ export default function Settings(): ReactNode {
             <Chip tone="accent">Coming soon</Chip>
           </div>
           <div className="text-xs text-stone-500">
-            CVs and emails are stored unencrypted in your Windows profile. Turn on BitLocker on this laptop to protect them if
-            it&apos;s lost or stolen. Encryption inside HR Assistant is on the roadmap.
+            The PIN lock hides HR data from anyone else at this computer; it doesn&apos;t encrypt it. CVs and emails are stored
+            in your Windows profile, protected by your Windows account. Turn on BitLocker so they stay safe if the laptop is lost
+            or stolen. Encryption inside HR Assistant is on the roadmap.
+          </div>
+          <div className="flex items-center justify-between gap-4 border-t border-stone-200 pt-4">
+            <div>
+              <div className="text-sm font-medium text-stone-800">Decision log</div>
+              <div className="text-xs text-stone-500">
+                Every shortlist, rejection, restore, dismissed flag and sent reply, with who did it, when, and the settings at the
+                time. It holds reference numbers only, no CV or email text.
+              </div>
+            </div>
+            <Button size="sm" onClick={() => void api.audit.exportCsv().catch((e) => setError(errorMessage(e)))}>
+              Export CSV
+            </Button>
           </div>
         </Card>
 

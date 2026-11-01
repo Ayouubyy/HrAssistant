@@ -47,6 +47,7 @@ export type FlagCode =
   | 'hidden_text'
   | 'invalid_output'
   | 'quote_not_found'
+  | 'text_order'
   | 'score_anomaly'
   | 'jd_copy'
   | 'keyword_stuffing'
@@ -55,6 +56,8 @@ export type FlagCode =
   | 'sender_unverified'
   | 'sender_spoofed'
   | 'lookalike_domain'
+  | 'display_name_spoof'
+  | 'duplicate_message_id'
   | 'disposable_domain'
   | 'reply_to_mismatch'
   | 'draft_has_link'
@@ -89,6 +92,10 @@ export interface Candidate {
   cacheIds?: string[]
   // Microsoft Defender result for the CV file
   scan?: 'clean' | 'threat' | 'unavailable'
+  // Set when HR rejects or confirms a suggested rejection
+  rejection?: RejectionRecord
+  // A re-screen of an analyzed CV: the previous result stays on screen while it runs, and if it fails
+  rescreen?: 'running' | 'failed'
 }
 
 export interface JobFilter {
@@ -107,8 +114,24 @@ export interface JobFilter {
 
 export interface Evaluation {
   score: number
+  // Out of the ranking: confirmed by HR, or suggested by an auto rule and waiting for HR.
   rejected: boolean
   reason: string | null
+  // An auto rule's suggestion that HR hasn't confirmed yet. It isn't a rejection until then.
+  suggested: boolean
+  // A rule that would have caught a candidate HR shortlisted or marked maybe.
+  note: string | null
+}
+
+// What a confirmed rejection was based on, frozen when HR confirmed it.
+export interface RejectionRecord {
+  reason: string
+  score: number
+  at: string
+  threshold: number
+  weights: Weights
+  model: string
+  promptVersion: string
 }
 
 export type EmailCategory =
@@ -150,6 +173,8 @@ export interface EmailItem {
   text: string
   threadCount: number
   messageId?: string
+  // Another stored email has the same Message-ID but different content.
+  duplicateMessageId?: boolean
   attachments: EmailAttachment[]
   replyTo?: string
   auth?: SenderAuth
@@ -176,4 +201,6 @@ export interface AppSettings {
   companyDomains: string[]
   autoLockMinutes: number
   retentionDays: number
+  // HR has read the warning that Google may use what's sent with a free Gemini key
+  freeTierAcknowledged: boolean
 }

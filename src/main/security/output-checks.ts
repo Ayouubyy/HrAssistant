@@ -36,10 +36,18 @@ export function quoteInText(quote: string, cvTokens: string[]): boolean {
 
 const shortQuote = (s: string): string => (s.length > 60 ? `${s.slice(0, 57)}…` : s)
 
-// Arabic text pulled from a PDF often comes out with words reordered and letters split, so quotes
-// from it can't be matched reliably; those CVs skip the quote check.
+// Arabic text pulled from a PDF often comes out with letters split off and lam-alef pairs swapped
+// ("األم" for "الأم"). When that's a real share of the Arabic words, quotes from it can't be matched
+// reliably and the quote check is skipped. A PDF that only contains an Arabic name is still checked.
+export function arabicScrambled(text: string): boolean {
+  const words = text.match(/[ء-ي]+/g) ?? []
+  if (words.length < 10) return false
+  const broken = words.filter((w) => (w.length === 1 && w !== 'و') || /ا[اأإآ]ل/.test(w)).length
+  return broken / words.length > 0.05
+}
+
 export const quotesCheckable = (fileName: string, text: string): boolean =>
-  !(fileName.toLowerCase().endsWith('.pdf') && /[؀-ۿ]/.test(text))
+  !(fileName.toLowerCase().endsWith('.pdf') && arabicScrambled(text))
 
 export function checkAnalysis(
   a: CandidateAnalysis,

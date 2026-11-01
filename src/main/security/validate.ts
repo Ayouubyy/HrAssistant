@@ -43,7 +43,8 @@ export function validateSettingsPatch(patch: unknown): Partial<AppSettings> {
     concurrency: (v) => Number.isInteger(v) && num(v, 1, 8),
     companyDomains: (v) => strArr(v, 20, 100) && (v as string[]).every((d) => /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(d)),
     autoLockMinutes: (v) => Number.isInteger(v) && num(v, 0, 240),
-    retentionDays: (v) => Number.isInteger(v) && num(v, 0, 3650)
+    retentionDays: (v) => Number.isInteger(v) && num(v, 0, 3650),
+    freeTierAcknowledged: (v) => typeof v === 'boolean'
   }
   for (const [k, v] of Object.entries(p)) {
     const rule = rules[k as keyof AppSettings]

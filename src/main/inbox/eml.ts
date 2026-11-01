@@ -1,7 +1,7 @@
 import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'fs'
 import { extname, join } from 'path'
 import { simpleParser } from 'mailparser'
-import type { EmailAttachment, EmailItem } from '../../shared/types'
+import type { EmailAttachment, EmailItem, SenderAuth } from '../../shared/types'
 import { sha256 } from '../ai/cache'
 import { checkSize, LIMITS } from '../security/active-content'
 import { fileNameFlags, insideDir, isOpenable, markOfTheWeb, safeFileName, uniqueName } from '../security/files'
@@ -32,7 +32,8 @@ function authHeaders(lines: ReadonlyArray<{ key: string; line: string }>): strin
 export async function parseEmail(raw: Buffer, source: EmailItem['source'], attachDir: string): Promise<EmailItem> {
   checkSize(raw.length, LIMITS.emailBytes, 'email')
   const m = await simpleParser(raw)
-  const id = sha256(m.messageId || raw).slice(0, 16)
+  // Message-ID plus content: a reused Message-ID can't replace (or inherit the summary of) another email.
+  const id = sha256(`${m.messageId ?? ''}|${sha256(raw)}`).slice(0, 16)
   const dir = join(attachDir, id)
   const attachments: EmailAttachment[] = []
   const taken = new Set<string>()
@@ -59,7 +60,9 @@ export async function parseEmail(raw: Buffer, source: EmailItem['source'], attac
     attachments.push({ fileName, path, isCv: !risky && looksLikeCv(fileName), openable: !risky && isOpenable(fileName), flags })
   }
   const text = (m.text || (typeof m.html === 'string' ? m.html.replace(/<[^>]+>/g, ' ') : '')).trim()
-  const auth = parseAuthResults(authHeaders(m.headerLines))
+  // An imported file can carry any header it likes, so only mail fetched from Gmail by the app is checked.
+  const auth: SenderAuth =
+    source === 'gmail' ? parseAuthResults(authHeaders(m.headerLines)) : { spf: null, dkim: null, dmarc: null, verdict: 'unknown' }
   return {
     id,
     source,
@@ -75,9 +78,25 @@ export async function parseEmail(raw: Buffer, source: EmailItem['source'], attac
   }
 }
 
+type Parse = (raw: Buffer, source: EmailItem['source'], attachDir: string) => Promise<EmailItem>
+
+// Parses a few at a time (each in its own utility process in the app).
+export async function parseAll(raws: Buffer[], source: EmailItem['source'], attachDir: string, parse: Parse = parseEmail): Promise<EmailItem[]> {
+  const out: EmailItem[] = []
+  for (let i = 0; i < raws.length; i += 4) {
+    const batch = await Promise.allSettled(raws.slice(i, i + 4).map((r) => parse(r, source, attachDir)))
+    out.push(...batch.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : [])))
+  }
+  return out
+}
+
 // Unreadable or oversized files are skipped so one bad email doesn't block the folder.
-export async function loadEmlFolder(folder: string, attachDir: string): Promise<EmailItem[]> {
+export async function loadEmlFolder(folder: string, attachDir: string, parse: Parse = parseEmail): Promise<EmailItem[]> {
   const files = readdirSync(folder).filter((f) => f.toLowerCase().endsWith('.eml') && statSync(join(folder, f)).isFile())
-  const results = await Promise.allSettled(files.map((f) => parseEmail(readFileSync(join(folder, f)), 'eml', attachDir)))
-  return results.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []))
+  return parseAll(
+    files.map((f) => readFileSync(join(folder, f))),
+    'eml',
+    attachDir,
+    parse
+  )
 }

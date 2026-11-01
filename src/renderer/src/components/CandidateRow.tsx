@@ -30,7 +30,8 @@ export function RankedRow({
   onOpen,
   onDecide,
   onRestore,
-  onReveal
+  onReveal,
+  onRetry
 }: {
   c: RankedCandidate
   rank: number | null
@@ -40,6 +41,7 @@ export function RankedRow({
   onDecide: (d: HrDecision) => void
   onRestore: () => void
   onReveal: () => void
+  onRetry: () => void
 }): ReactNode {
   const a = c.analysis!
   const missingMust = job.requirements.filter(
@@ -89,10 +91,29 @@ export function RankedRow({
           {a.languages.length > 0 && <span className="text-xs text-stone-400">{a.languages.slice(0, 3).join(' · ')}</span>}
           {c.source === 'email' && <Chip tone="accent">From inbox</Chip>}
           <NeedsReviewChip item={c} />
+          {c.rescreen === 'running' && (
+            <span className="flex items-center gap-1 text-xs text-progress">
+              <Loader2 size={11} className="animate-spin" /> Re-screening
+            </span>
+          )}
         </div>
+        {c.rescreen === 'failed' && (
+          <div className="mt-0.5 flex items-center gap-2 text-xs text-stone-600" onClick={(e) => e.stopPropagation()}>
+            <AlertTriangle size={11} /> Re-screen failed, showing the previous result.
+            <button onClick={onRetry} className="cursor-pointer font-medium text-accent hover:underline">
+              Retry
+            </button>
+          </div>
+        )}
         <div className={`mt-0.5 text-sm ${c.rejected ? 'text-rose-700' : 'text-stone-600'}`} dir="auto">
+          {c.suggested && <span className="mr-1.5 font-medium">Suggested ·</span>}
           {c.rejected ? c.reason : a.verdict}
         </div>
+        {c.note && (
+          <div className="mt-0.5 text-xs text-stone-500" dir="auto">
+            {c.note}
+          </div>
+        )}
         <div className="mt-1.5 flex flex-wrap gap-1">
           {a.matchedSkills.slice(0, 5).map((s) => (
             <Chip key={s} tone="success">
@@ -112,7 +133,16 @@ export function RankedRow({
         </div>
       </div>
       <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-        {c.rejected && c.hrDecision !== 'reject' ? (
+        {c.suggested ? (
+          <>
+            <Button size="sm" onClick={onRestore}>
+              <RotateCcw size={12} /> Keep
+            </Button>
+            <Button size="sm" variant="danger" onClick={() => onDecide('reject')}>
+              <X size={12} /> Confirm
+            </Button>
+          </>
+        ) : c.rejected ? (
           <Button size="sm" onClick={onRestore}>
             <RotateCcw size={12} /> Restore
           </Button>

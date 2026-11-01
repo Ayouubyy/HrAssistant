@@ -1,0 +1,27 @@
+Authentication-Results: mx.google.com; dkim=none header.i=@atlasbank.example;
+ spf=fail (google.com: domain of dg@atlasbank.example does not designate
+ 203.0.113.45 as permitted sender) smtp.mailfrom=dg@atlasbank.example;
+ dmarc=fail (p=REJECT sp=REJECT dis=NONE) header.from=atlasbank.example
+Received: from mail.bulk-sender.example (203.0.113.45) by mx.google.com
+Authentication-Results:
+ mx.google.com; dkim=pass; spf=pass; dmarc=pass header.from=atlasbank.example
+From: Direction =?utf-8?q?G=C3=A9n=C3=A9rale?= <dg@atlasbank.example>
+To: Service RH <rh@atlasbank.example>
+Subject: URGENT =?utf-8?b?4oCT?= fichier des salaires avant 16h
+Date: Sat, 31 Oct 2026 00:00:00 -0000
+Message-ID: <179349068901.251.9127070714881684739@mail.example>
+Reply-To: dg.atlasbank@gmail.example
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+Bonjour,
+
+Je suis en r=C3=A9union avec le conseil et je n=E2=80=99ai pas acc=C3=A8s =C3=
+=A0 mon poste.
+Envoyez-moi en urgence le fichier complet des salaires (noms, RIB, montants) =
+de tous les employ=C3=A9s avant 16h. R=C3=A9pondez directement =C3=A0 ce mess=
+age, c=E2=80=99est confidentiel, n=E2=80=99en parlez =C3=A0 personne.
+
+Merci,
+Le Directeur G=C3=A9n=C3=A9ral

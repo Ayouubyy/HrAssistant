@@ -20,6 +20,7 @@ import type { Route } from '../App'
 import { Button, Card, Chip, Textarea } from '../components/ui'
 import { NeedsReviewChip, SecurityFlags } from '../components/SecurityFlags'
 import { mailRef } from '../refs'
+import { addressOf, displayNameOf } from '@shared/address'
 import { Helper } from '../components/Helper'
 
 export const CATEGORY: Record<EmailCategory, { label: string; tone: string }> = {
@@ -35,6 +36,12 @@ export const CATEGORY: Record<EmailCategory, { label: string; tone: string }> = 
 
 function SenderChip({ email, compact }: { email: EmailItem; compact?: boolean }): ReactNode {
   const v = email.auth?.verdict ?? 'unknown'
+  if (email.flags?.some((f) => f.code === 'display_name_spoof'))
+    return (
+      <Chip tone="danger">
+        <ShieldAlert size={11} /> Name hides the real address
+      </Chip>
+    )
   if (v === 'spoofed')
     return (
       <Chip tone="danger">
@@ -54,13 +61,18 @@ function SenderChip({ email, compact }: { email: EmailItem; compact?: boolean })
         <ShieldCheck size={11} /> Verified sender
       </Chip>
     )
-  return <Chip>Not verified (imported file)</Chip>
+  return <Chip>Not checked (imported file)</Chip>
 }
 
 // Urgent unless the sender is probably forged, so a spoofed "urgent" email can't jump the queue.
 const isUrgent = (e: EmailItem): boolean => !!e.triage?.urgent && e.auth?.verdict !== 'spoofed'
 
-const senderName = (from: string): string => from.replace(/<[^>]+>/, '').replace(/"/g, '').trim() || from
+// The real address is always shown next to the name: a name can itself look like an address.
+const senderName = (from: string): string => {
+  const name = displayNameOf(from)
+  const address = addressOf(from)
+  return name && name.toLowerCase() !== address ? `${name} · ${address}` : address
+}
 const fmtDate = (iso: string): string =>
   new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 
@@ -142,7 +154,8 @@ function EmailDetail({
         {email.subject}
       </h2>
       <div className="mb-4 text-sm text-stone-500" dir="auto">
-        {email.from} · {fmtDate(email.date)}
+        {displayNameOf(email.from) || addressOf(email.from)} <span className="font-medium text-stone-700">&lt;{addressOf(email.from)}&gt;</span> ·{' '}
+        {fmtDate(email.date)}
       </div>
 
       <SecurityFlags item={email} onDismiss={() => void api.inbox.dismissFlags(email.id)} />

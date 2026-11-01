@@ -162,6 +162,15 @@ describe('pipeline', () => {
     expect(ai.prompts[0]).not.toContain('7700 900123')
     expect(c.analysis?.identity.email).toBe('james.carter@mail.co.uk')
   })
+
+  it('does not send the candidate name to the AI, and keeps it for HR', async () => {
+    const ai = fakeAi(async () => goodRaw)
+    const { run } = setup(ai, ['cvs/en-01-james-carter.docx', 'cvs/ar-01-khalid-amrani.docx'])
+    const list = await run()
+    expect(ai.prompts.join('\n')).not.toMatch(/James Carter|خالد العمراني/)
+    expect(ai.prompts[0]).toContain('[name]')
+    expect(list.map((c) => c.analysis?.identity.name).sort()).toEqual(['James Carter', 'خالد العمراني'].sort())
+  })
 })
 
 describe('normalizeAnalysis', () => {
