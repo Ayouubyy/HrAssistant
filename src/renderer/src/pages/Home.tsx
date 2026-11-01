@@ -10,6 +10,9 @@ import { Helper } from '../components/Helper'
 import { Mark, type MarkKind } from '../components/Mark'
 import { cvRef, mailRef } from '../refs'
 import { Button } from '../components/ui'
+import { BarList, Dot, ScoreStrip, StackBar, StripAxis, type BarRow } from '../components/Charts'
+import { DOT_LABEL, type DotState } from '../charts'
+import { CATEGORY } from './Inbox'
 
 type Figure = 'review' | 'decide' | 'progress' | 'urgent'
 
@@ -135,14 +138,30 @@ export default function Home({ go }: { go: (r: Route) => void }): ReactNode {
 
   const allCands = Object.values(cands).flat()
   const done = allCands.filter((c) => c.status === 'done')
-  const ledger: [string, number][] = [
-    ['CVs checked', done.length],
-    ['Hidden text or injection found', done.filter((c) => c.flags?.some((f) => f.severity === 'high' && ['hidden_text', 'injection_phrase', 'model_reported_injection'].includes(f.code))).length],
-    ['Active content or malware', allCands.filter((c) => c.flags?.some((f) => f.code === 'active_content' || f.code === 'malware')).length],
-    ['Emails from verified senders', emails.filter((e) => e.auth?.verdict === 'verified').length],
-    ['Unverified or spoofed senders', emails.filter((e) => e.auth?.verdict === 'unverified' || e.auth?.verdict === 'spoofed').length],
-    ['Unsafe attachments held back', emails.reduce((n, e) => n + e.attachments.filter((a) => a.openable === false).length, 0)]
+  const ranks = jobs.map((j) => ({ job: j, list: cands[j.id] ?? [], r: rankCandidates(cands[j.id] ?? [], j) }))
+
+  const funnel = [
+    { key: 'in', label: 'Received', value: allCands.length },
+    { key: 'read', label: 'Read and scored', value: done.length },
+    { key: 'pass', label: 'Pass your rules', value: ranks.reduce((n, x) => n + x.r.ranked.length, 0) },
+    { key: 'short', label: 'Shortlisted', value: allCands.filter((c) => c.hrDecision === 'shortlist').length }
   ]
+
+  const sorting = emails.filter((e) => !e.triage && !e.triageError).length
+  const byCategory: BarRow[] = (Object.keys(CATEGORY) as (keyof typeof CATEGORY)[])
+    .map((k) => {
+      const list = emails.filter((e) => e.triage?.category === k)
+      const urgent = list.filter(isUrgent).length
+      return { key: k, label: CATEGORY[k].label, value: list.length, detail: urgent ? `${urgent} urgent` : undefined }
+    })
+    .filter((r) => r.value > 0)
+    .sort((a, b) => b.value - a.value)
+  if (sorting) byCategory.push({ key: 'sorting', label: 'Being sorted', value: sorting, bar: 'bg-progress' })
+
+  const reviewCvs = done.filter((c) => needsReview(c)).length
+  const notedCvs = done.filter((c) => !needsReview(c) && c.flags?.some((f) => f.severity !== 'info')).length
+  const attachments = emails.flatMap((e) => e.attachments)
+  const verdicts = (v: string): number => emails.filter((e) => (e.auth?.verdict ?? 'unknown') === v).length
   const needs = count('review')
   const status =
     rows.length === 0
@@ -203,6 +222,74 @@ export default function Home({ go }: { go: (r: Route) => void }): ReactNode {
       </div>
 
       <section className="mt-9">
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+          <h2 className="text-lg font-semibold tracking-[-0.01em] text-stone-900">Candidates by score</h2>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-stone-600">
+            {(['short', 'open', 'out', 'review'] as DotState[]).map((s) => (
+              <span key={s} className="inline-flex items-center gap-1.5">
+                <span className="flex h-3 w-3 items-center justify-center">
+                  <Dot state={s} />
+                </span>
+                {DOT_LABEL[s]}
+              </span>
+            ))}
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-3 w-3 border-r border-stone-900 bg-stone-100" /> Below threshold
+            </span>
+          </div>
+        </div>
+        {ranks.length === 0 ? (
+          <div className="border-t border-stone-900 py-5 text-sm text-stone-500">
+            Each job filter gets a strip here, with every candidate placed by score.{' '}
+            <button onClick={() => go({ page: 'newJob' })} className="cursor-pointer text-accent hover:underline">
+              Create the first one
+            </button>
+          </div>
+        ) : (
+          <div className="border-t border-stone-900">
+            {ranks.map(({ job, list, r }) => {
+              const numbers = new Map(list.map((c, i) => [c.id, i + 1]))
+              const scored = [...r.ranked, ...r.rejected]
+              const shortlisted = list.filter((c) => c.hrDecision === 'shortlist').length
+              return (
+                <div key={job.id} className="grid grid-cols-[200px_minmax(0,1fr)_92px] items-end gap-5 border-b border-stone-200 py-3">
+                  <button onClick={() => go({ page: 'job', jobId: job.id })} className="min-w-0 cursor-pointer pb-1 text-left">
+                    <span className="block truncate text-sm font-semibold text-stone-900 hover:text-accent" dir="auto">
+                      {job.title}
+                    </span>
+                    <span className="tabular block text-xs text-stone-500">
+                      {list.length} CVs
+                      {r.pending.length > 0 && <span className="text-progress"> · {r.pending.length} being read</span>}
+                      {job.closedAt && ' · closed'}
+                    </span>
+                  </button>
+                  {scored.length ? (
+                    <ScoreStrip
+                      candidates={scored}
+                      numbers={numbers}
+                      threshold={job.threshold}
+                      onOpen={(id) => go({ page: 'job', jobId: job.id, candidateId: id })}
+                    />
+                  ) : (
+                    <div className="pb-1 text-xs text-stone-500">No scores yet.</div>
+                  )}
+                  <div className="pb-1 text-right">
+                    <span className="tabular block text-[26px] leading-none font-semibold tracking-[-0.02em] text-stone-900">{shortlisted}</span>
+                    <span className="text-xs text-stone-500">shortlisted</span>
+                  </div>
+                </div>
+              )
+            })}
+            <div className="grid grid-cols-[200px_minmax(0,1fr)_92px] gap-5 pt-1.5">
+              <span />
+              <StripAxis />
+              <span className="text-right text-[10px] text-stone-500">score</span>
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="mt-10">
         <div className="mb-2 flex items-baseline justify-between">
           <h2 className="text-lg font-semibold tracking-[-0.01em] text-stone-900">
             {figure ? figures.find((f) => f.id === figure)!.label : 'Work queue'}
@@ -284,56 +371,61 @@ export default function Home({ go }: { go: (r: Route) => void }): ReactNode {
         )}
       </section>
 
-      <div className="mt-10 grid grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] gap-10">
+      <div className="mt-10 grid grid-cols-3 gap-10">
         <section>
-          <div className="mb-2 flex items-baseline justify-between">
-            <h2 className="text-lg font-semibold tracking-[-0.01em] text-stone-900">Job filters</h2>
-            <button onClick={() => go({ page: 'newJob' })} className="cursor-pointer text-sm text-accent hover:underline">
-              New job filter
-            </button>
-          </div>
-          <div className="border-t border-stone-900">
-            <div className="grid grid-cols-[minmax(0,1fr)_64px_64px_84px] border-b border-stone-300 py-2 text-[11px] font-semibold tracking-wide text-stone-500 uppercase">
-              <span>Role</span>
-              <span className="text-right">CVs</span>
-              <span className="text-right">Ranked</span>
-              <span className="text-right">Shortlist</span>
-            </div>
-            {jobs.length === 0 && <div className="py-4 text-sm text-stone-500">No job filters yet.</div>}
-            {jobs.map((j) => {
-              const list = cands[j.id] ?? []
-              const r = rankCandidates(list, j)
-              return (
-                <button
-                  key={j.id}
-                  onClick={() => go({ page: 'job', jobId: j.id })}
-                  className="tabular grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_64px_64px_84px] items-baseline border-b border-stone-200 py-2.5 text-left text-sm hover:bg-white/60"
-                >
-                  <span className="truncate pr-3 font-medium text-stone-900" dir="auto">
-                    {j.title}
-                    {j.closedAt && <span className="ml-2 text-xs font-normal text-stone-500">closed</span>}
-                  </span>
-                  <span className="text-right text-stone-700">{list.length}</span>
-                  <span className="text-right text-stone-700">{r.ranked.length}</span>
-                  <span className="text-right text-stone-700">{list.filter((c) => c.hrDecision === 'shortlist').length}</span>
-                </button>
-              )
-            })}
-          </div>
+          <h2 className="mb-3 border-b border-stone-900 pb-2 text-lg font-semibold tracking-[-0.01em] text-stone-900">Screening</h2>
+          <BarList rows={funnel} max={funnel[0].value} />
+          <p className="mt-3 text-xs leading-relaxed text-stone-500">Across all job filters. Only HR shortlists.</p>
         </section>
 
         <section>
-          <h2 className="mb-2 text-lg font-semibold tracking-[-0.01em] text-stone-900">Security ledger</h2>
-          <div className="border-t border-stone-900">
-            {ledger.map(([label, n]) => (
-              <div key={label} className="flex items-baseline justify-between border-b border-stone-200 py-2 text-sm">
-                <span className="text-stone-700">{label}</span>
-                <span className="tabular font-semibold text-stone-900">{n}</span>
-              </div>
-            ))}
+          <h2 className="mb-3 border-b border-stone-900 pb-2 text-lg font-semibold tracking-[-0.01em] text-stone-900">Inbox by topic</h2>
+          {byCategory.length ? (
+            <BarList rows={byCategory} />
+          ) : (
+            <p className="text-sm text-stone-500">
+              No emails yet.{' '}
+              <button onClick={() => go({ page: 'inbox' })} className="cursor-pointer text-accent hover:underline">
+                Open the inbox
+              </button>
+            </p>
+          )}
+          <p className="mt-3 text-xs leading-relaxed text-stone-500">Topics and urgency are suggested by the AI.</p>
+        </section>
+
+        <section>
+          <h2 className="mb-3 border-b border-stone-900 pb-2 text-lg font-semibold tracking-[-0.01em] text-stone-900">Security checks</h2>
+          <div className="grid gap-4">
+            <StackBar
+              label="CVs"
+              empty="No CVs checked yet"
+              segments={[
+                { key: 'clean', label: 'clean', value: done.length - reviewCvs - notedCvs, fill: 'bg-accent' },
+                { key: 'noted', label: 'with a note', value: notedCvs, fill: 'bg-stone-400' },
+                { key: 'review', label: 'need review', value: reviewCvs, fill: 'bg-needs' }
+              ]}
+            />
+            <StackBar
+              label="Email senders"
+              empty="No emails yet"
+              segments={[
+                { key: 'verified', label: 'verified', value: verdicts('verified'), fill: 'bg-accent' },
+                { key: 'unknown', label: 'not checked', value: verdicts('unknown'), fill: 'bg-stone-300' },
+                { key: 'unverified', label: 'unverified', value: verdicts('unverified'), fill: 'bg-stone-500' },
+                { key: 'spoofed', label: 'spoofed', value: verdicts('spoofed'), fill: 'bg-needs' }
+              ]}
+            />
+            <StackBar
+              label="Attachments"
+              empty="No attachments yet"
+              segments={[
+                { key: 'safe', label: 'safe to open', value: attachments.filter((a) => a.openable !== false).length, fill: 'bg-accent' },
+                { key: 'held', label: 'held back', value: attachments.filter((a) => a.openable === false).length, fill: 'bg-needs' }
+              ]}
+            />
           </div>
           <p className="mt-3 text-xs leading-relaxed text-stone-500">
-            Checks run on this computer before anything reaches the AI. Flags never reject anyone or change a score.
+            Checked on this computer before anything reaches the AI. Flags never reject anyone or change a score.
           </p>
         </section>
       </div>

@@ -10,7 +10,7 @@ import CandidateDetail from '../components/CandidateDetail'
 import { PendingRow, RankedRow } from '../components/CandidateRow'
 import { Button, Card, Chip, Toggle } from '../components/ui'
 
-type Tab = 'ranked' | 'rejected' | 'shortlist' | 'review'
+export type Tab = 'ranked' | 'rejected' | 'shortlist' | 'review'
 
 function Slider({
   label,
@@ -61,9 +61,11 @@ export default function JobFilterPage({
   onContext,
   assistantFilter,
   clearAssistantFilter,
-  initialOpenId
+  initialOpenId,
+  initialTab
 }: {
   initialOpenId?: string
+  initialTab?: Tab
   jobId: string
   go: (r: Route) => void
   onContext: (job: JobFilter | null, candidates: Candidate[]) => void
@@ -72,7 +74,7 @@ export default function JobFilterPage({
 }): ReactNode {
   const [job, setJob] = useState<JobFilter | null>(null)
   const [cands, setCands] = useState<Candidate[]>([])
-  const [tab, setTab] = useState<Tab>('ranked')
+  const [tab, setTab] = useState<Tab>(initialTab ?? 'ranked')
   const [openId, setOpenId] = useState<string | null>(initialOpenId ?? null)
   const [dragging, setDragging] = useState(false)
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -347,6 +349,7 @@ export default function JobFilterPage({
               onRestore={() => patchCand(c.id, { restored: true, hrDecision: null })}
               onReveal={() => patchCand(c.id, { revealed: true })}
               onRetry={() => api.candidates.retry(c.id)}
+              onCredibility={() => go({ page: 'soon', id: 'credibility', back: { page: 'job', jobId, tab } })}
             />
           ))}
           {list.length === 0 && ranked.pending.length === 0 && (

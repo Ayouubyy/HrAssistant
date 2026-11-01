@@ -109,11 +109,12 @@ Small radii: 3px for tags, 6px for controls and the few remaining panels. No pil
 
 ## Components
 
-- **Rail navigation:** Home, Inbox (with a red urgent count), Job filters and each job, New job filter, a "Coming soon" group, then Connected accounts and Settings pinned low, Lock at the foot. Active item turns white with ink text.
+- **Rail navigation:** Home, Inbox (with a red urgent count), Job filters and each job, New job filter, Interviews, a "People" group (Employee Q&A, People growth, Workforce planning), then Connected accounts and Settings pinned low, Lock at the foot. Upcoming features sit in the rail like any other item, with an icon; they open their coming-soon page. Active item turns white with ink text.
 - **Helper (Nour):** `Helper` with moods idle, thinking (eyes up, flat mouth) and happy (closed eyes); eyes blink unless reduced motion is on. Always paired with `HelperPlate` ("Nour · HR assistant") where it speaks.
 - **Key figure:** number at display size, label in semibold, one-line note in muted text; clicking filters the queue below.
+- **Charts (home):** drawn with plain elements, no library. A score strip per job (0–100 axis, shaded band below the threshold, ink threshold line, one mark per candidate: filled petrol circle = shortlisted, petrol ring = awaiting a decision, small grey dot = rejected or suggested, red square = needs review; close scores spread over up to 4 lanes; hover shows ref, score and state; click opens the candidate). Horizontal bar lists in one petrol hue with the value printed at the end (ochre only for "being sorted"). Part-to-whole bars with 2px gaps and a legend that prints every value. Every state has a shape or a printed value besides its colour. Tick labels are 10px.
 - **Work queue / ruled table rows:** mark, reference number (`CV-03`, `MAIL-3F2A`), item, where, status, one text action ("Review" for flagged items, otherwise "Open").
-- **Coming soon pages:** an outlined uppercase "Coming soon" tag, the feature title, a ruled "What it will do" list, and a petrol-tinted "You stay in charge" note with the helper.
+- **Coming soon pages:** an outlined uppercase "Coming soon" tag, the feature title, a ruled "What it will do" list, optional status terms, a petrol-tinted "You stay in charge" note with the helper, and a back link when opened from inside a page (the credibility check opens from a shortlisted CV). An entry point to an upcoming feature looks like a normal control; a hover tooltip or the page it opens says it is coming soon.
 - **Security flags:** `SecurityFlags` lists each flag with its evidence and a Dismiss button; `NeedsReviewChip` marks rows.
 
 ## Do's and Don'ts
@@ -123,4 +124,4 @@ Small radii: 3px for tags, 6px for controls and the few remaining panels. No pil
 - Do show reference numbers wherever an item can be named in conversation.
 - Don't reintroduce the old indigo accent (#3b4fd8), gradients, glass, icon tiles or stat cards with icons.
 - Don't make the helper a toy: no bounce, confetti or speech-bubble mascot moments; it greets, thinks and stays out of the way.
-- Don't present roadmap features as working; every one carries the "Coming soon" tag.
+- Don't let an upcoming feature pretend to work: its nav item or button may look ready, but clicking it always opens the coming-soon page, never a fake result.

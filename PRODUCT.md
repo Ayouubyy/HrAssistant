@@ -27,7 +27,7 @@ A desktop window with a left sidebar, the main page, and an assistant chat panel
 ## Capabilities and Constraints
 
 - Shipped: CV screening (job filters), HR inbox triage, assistant chat panel, lock screen, Settings, Connected accounts (Gmail), security flags with "Needs review".
-- Roadmap, to appear in the UI only as "coming soon": Outlook, LinkedIn and Google Drive connectors; interview scheduling and interview question prep; employee Q&A bot; performance, training and skills-gap tracking; workforce planning; CV credibility score; local AI injection detector; at-rest encryption; more industry presets; website and mobile app.
+- Upcoming features appear in the UI like ready ones (rail items, a "Check credibility" button on shortlisted CVs) and open a coming-soon page that explains them: interview scheduling and question prep; employee Q&A bot; performance, training and skills-gap tracking; workforce planning; the credibility check (an AI agent comparing a CV's claims with its evidence). Also planned, shown only where they belong: Outlook, LinkedIn and Google Drive connectors (Connected accounts), the local AI injection detector (Settings), at-rest encryption, more industry presets, website and mobile app.
 - The screening and inbox flows must keep working exactly as they do; the redesign changes presentation, not behavior.
 - Content in French, English and Arabic (RTL) must render correctly.
 

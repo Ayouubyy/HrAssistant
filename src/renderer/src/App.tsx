@@ -1,29 +1,41 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
-import { Briefcase, Home as HomeIcon, Inbox as InboxIcon, Lock, Plug, Plus, Settings as SettingsIcon } from 'lucide-react'
+import {
+  Briefcase,
+  CalendarClock,
+  Home as HomeIcon,
+  Inbox as InboxIcon,
+  Lock,
+  MessagesSquare,
+  Network,
+  Plug,
+  Plus,
+  Settings as SettingsIcon,
+  Sprout
+} from 'lucide-react'
 import type { Candidate, EmailItem, JobFilter } from '@shared/types'
 import { api } from './api'
 import AssistantPanel, { type AssistantContext } from './components/AssistantPanel'
 import { Helper } from './components/Helper'
 import JobEditor from './pages/JobEditor'
-import JobFilterPage from './pages/JobFilterPage'
+import JobFilterPage, { type Tab } from './pages/JobFilterPage'
 import JobFilters from './pages/JobFilters'
 import Settings from './pages/Settings'
 import Inbox from './pages/Inbox'
 import Accounts from './pages/Accounts'
 import Home from './pages/Home'
 import ComingSoon from './pages/ComingSoon'
-import { SOON, type SoonId } from './roadmap'
+import type { SoonId } from './roadmap'
 
 export type Route =
   | { page: 'home' }
   | { page: 'jobs' }
   | { page: 'newJob' }
   | { page: 'editJob'; jobId: string }
-  | { page: 'job'; jobId: string; candidateId?: string }
+  | { page: 'job'; jobId: string; candidateId?: string; tab?: Tab }
   | { page: 'inbox'; emailId?: string }
   | { page: 'accounts' }
   | { page: 'settings' }
-  | { page: 'soon'; id: SoonId }
+  | { page: 'soon'; id: SoonId; back?: Route }
 
 export interface AssistantFilter {
   label: string
@@ -116,9 +128,10 @@ export default function App({ onLock }: { onLock: () => void }): ReactNode {
       case 'job':
         return (
           <JobFilterPage
-            key={`${route.jobId}-${route.candidateId ?? ''}`}
+            key={`${route.jobId}-${route.candidateId ?? ''}-${route.tab ?? ''}`}
             jobId={route.jobId}
             initialOpenId={route.candidateId}
+            initialTab={route.tab}
             go={go}
             onContext={onJobContext}
             assistantFilter={filter}
@@ -132,11 +145,19 @@ export default function App({ onLock }: { onLock: () => void }): ReactNode {
       case 'settings':
         return <Settings />
       case 'soon':
-        return <ComingSoon key={route.id} id={route.id} />
+        return (
+          <ComingSoon
+            key={route.id}
+            id={route.id}
+            onBack={route.back ? () => go(route.back!) : undefined}
+            backLabel={route.back?.page === 'job' ? 'Back to the candidates' : undefined}
+          />
+        )
     }
   }
 
   const activeJob = route.page === 'job' || route.page === 'editJob' ? route.jobId : null
+  const soonActive = (id: SoonId): boolean => route.page === 'soon' && route.id === id && !route.back
 
   return (
     <div className="flex h-full">
@@ -176,16 +197,13 @@ export default function App({ onLock }: { onLock: () => void }): ReactNode {
             <Plus size={14} /> New job filter
           </button>
 
-          <RailHeading>Coming soon</RailHeading>
-          {SOON.map((s) => (
-            <NavItem
-              key={s.id}
-              label={s.title}
-              active={route.page === 'soon' && route.id === s.id}
-              onClick={() => go({ page: 'soon', id: s.id })}
-            />
-          ))}
-          <NavItem label="Full roadmap" active={route.page === 'soon' && route.id === 'roadmap'} onClick={() => go({ page: 'soon', id: 'roadmap' })} />
+          {/* These open a page explaining the feature; they aren't built yet (see roadmap.ts). */}
+          <NavItem icon={<CalendarClock size={16} />} label="Interviews" active={soonActive('interviews')} onClick={() => go({ page: 'soon', id: 'interviews' })} />
+
+          <RailHeading>People</RailHeading>
+          <NavItem icon={<MessagesSquare size={16} />} label="Employee Q&A" active={soonActive('employeeQa')} onClick={() => go({ page: 'soon', id: 'employeeQa' })} />
+          <NavItem icon={<Sprout size={16} />} label="People growth" active={soonActive('people')} onClick={() => go({ page: 'soon', id: 'people' })} />
+          <NavItem icon={<Network size={16} />} label="Workforce planning" active={soonActive('workforce')} onClick={() => go({ page: 'soon', id: 'workforce' })} />
 
           <div className="mt-auto pt-6">
             <NavItem icon={<Plug size={16} />} label="Connected accounts" active={route.page === 'accounts'} onClick={() => go({ page: 'accounts' })} />

@@ -1,12 +1,15 @@
-// Roadmap features shown in the UI as "coming soon". Nothing here is implemented.
-export type SoonId = 'interviews' | 'employeeQa' | 'people' | 'workforce' | 'credibility' | 'roadmap'
+// Features that appear in the app like any other, and open a "coming soon" page explaining them.
+// Nothing here is implemented yet.
+export type SoonId = 'interviews' | 'employeeQa' | 'people' | 'workforce' | 'credibility'
 
 export interface SoonFeature {
-  id: Exclude<SoonId, 'roadmap'>
+  id: SoonId
   title: string
   summary: string
   will: string[]
   hrDecides: string
+  // Short labels shown as a strip on the page, e.g. the statuses a feature will use.
+  terms?: string[]
 }
 
 export const SOON: SoonFeature[] = [
@@ -56,35 +59,19 @@ export const SOON: SoonFeature[] = [
   },
   {
     id: 'credibility',
-    title: 'CV credibility check',
-    summary: 'A background check on each shortlisted CV, built only from what the CV itself says.',
+    title: 'Credibility check',
+    summary:
+      'An AI agent that checks the claims in a shortlisted CV against the evidence in the same CV, and prepares questions for the interview.',
     will: [
-      'Spot overlapping full-time jobs, impossible dates and unexplained gaps',
-      'Compare job titles with years of experience',
-      'Combine these with the existing security checks into one trust note'
+      'List the CV’s key claims, such as “3 years of Python” or “AWS certification”, with the section each comes from',
+      'Look for evidence in roles, projects, dates, certifications and training, and give each claim a status',
+      'Check the timeline: durations that don’t match the dates, overlapping jobs, unexplained gaps',
+      'Write a trust report: the evidence for each claim, what stays unverified, and questions to ask in the interview'
     ],
-    hrDecides: 'Low trust sends a CV to Needs review, never to rejection. No profile scraping.'
+    hrDecides:
+      'It never says a candidate lies and never rejects anyone. A claim without proof is marked unverified, not false. You decide what to ask and what it means.',
+    terms: ['Supported', 'Partly supported', 'Unverified', 'Needs clarification', 'Contradicted']
   }
 ]
 
-export interface RoadmapRow {
-  group: string
-  name: string
-  line: string
-}
-
-export const ROADMAP: RoadmapRow[] = [
-  { group: 'Recruitment', name: 'Interviews', line: 'Scheduling and interview question prep' },
-  { group: 'Recruitment', name: 'CV credibility check', line: 'Consistency checks on dates and claims' },
-  { group: 'Recruitment', name: 'More industry presets', line: 'Manufacturing and healthcare' },
-  { group: 'Recruitment', name: 'Scanned CVs', line: 'Read image-only PDFs with OCR' },
-  { group: 'People', name: 'Employee Q&A', line: 'Policy answers for employees, approved by HR' },
-  { group: 'People', name: 'People growth', line: 'Performance, training and skills gaps' },
-  { group: 'People', name: 'Workforce planning', line: 'Hiring needs by team' },
-  { group: 'Connected accounts', name: 'Outlook', line: 'Microsoft 365 mailboxes' },
-  { group: 'Connected accounts', name: 'LinkedIn', line: 'Import applicants from job posts' },
-  { group: 'Connected accounts', name: 'Google Drive', line: 'Pick CVs from shared folders' },
-  { group: 'Security and privacy', name: 'Local injection detector', line: 'A small model on this computer that spots hidden instructions' },
-  { group: 'Security and privacy', name: 'Encrypted storage', line: 'CVs and emails encrypted inside HR Assistant' },
-  { group: 'Everywhere', name: 'Website and mobile app', line: 'Review and decide away from the laptop' }
-]
+export const soonFeature = (id: SoonId): SoonFeature => SOON.find((f) => f.id === id)!

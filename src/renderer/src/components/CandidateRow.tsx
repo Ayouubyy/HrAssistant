@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { AlertTriangle, Check, Eye, Loader2, RotateCcw, Star, X } from 'lucide-react'
+import { AlertTriangle, Check, Eye, Loader2, RotateCcw, ScanSearch, Star, X } from 'lucide-react'
 import type { RankedCandidate } from '@shared/scoring'
 import type { Candidate, HrDecision, JobFilter } from '@shared/types'
 import { Button, Chip } from './ui'
@@ -31,7 +31,8 @@ export function RankedRow({
   onDecide,
   onRestore,
   onReveal,
-  onRetry
+  onRetry,
+  onCredibility
 }: {
   c: RankedCandidate
   rank: number | null
@@ -42,6 +43,7 @@ export function RankedRow({
   onRestore: () => void
   onReveal: () => void
   onRetry: () => void
+  onCredibility?: () => void
 }): ReactNode {
   const a = c.analysis!
   const missingMust = job.requirements.filter(
@@ -148,6 +150,25 @@ export function RankedRow({
           </Button>
         ) : (
           <>
+            {c.hrDecision === 'shortlist' && onCredibility && (
+              // Not built yet: the button looks like the others, the tooltip and the page it opens say so.
+              <span className="group/cred relative mr-1">
+                <button
+                  onClick={onCredibility}
+                  aria-describedby={`cred-${c.id}`}
+                  className="flex cursor-pointer items-center gap-1 rounded-md border border-accent/40 bg-accent-soft px-2 py-1 text-xs font-medium text-accent transition hover:border-accent hover:bg-accent hover:text-white"
+                >
+                  <ScanSearch size={12} /> Check credibility
+                </button>
+                <span
+                  id={`cred-${c.id}`}
+                  role="tooltip"
+                  className="pointer-events-none absolute right-0 bottom-full z-10 mb-1.5 rounded-[3px] bg-stone-900 px-2 py-1 text-[11px] font-medium whitespace-nowrap text-white opacity-0 transition-opacity group-focus-within/cred:opacity-100 group-hover/cred:opacity-100"
+                >
+                  Coming soon · click to see what it will do
+                </span>
+              </span>
+            )}
             {decisionBtn('shortlist', <Star size={12} />, 'Shortlist')}
             {decisionBtn('maybe', <Check size={12} />, 'Maybe')}
             {decisionBtn('reject', <X size={12} />, 'Reject')}
