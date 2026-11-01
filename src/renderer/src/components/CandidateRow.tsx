@@ -149,10 +149,16 @@ export function RankedRow({
             <RotateCcw size={12} /> Restore
           </Button>
         ) : (
-          <>
+          // The credibility check sits under the decisions so it doesn't narrow the candidate's text.
+          <div className="flex flex-col items-end gap-1.5">
+            <div className="flex items-center gap-1.5">
+              {decisionBtn('shortlist', <Star size={12} />, 'Shortlist')}
+              {decisionBtn('maybe', <Check size={12} />, 'Maybe')}
+              {decisionBtn('reject', <X size={12} />, 'Reject')}
+            </div>
             {c.hrDecision === 'shortlist' && onCredibility && (
               // Not built yet: the button looks like the others, the tooltip and the page it opens say so.
-              <span className="group/cred relative mr-1">
+              <span className="group/cred relative">
                 <button
                   onClick={onCredibility}
                   aria-describedby={`cred-${c.id}`}
@@ -169,10 +175,7 @@ export function RankedRow({
                 </span>
               </span>
             )}
-            {decisionBtn('shortlist', <Star size={12} />, 'Shortlist')}
-            {decisionBtn('maybe', <Check size={12} />, 'Maybe')}
-            {decisionBtn('reject', <X size={12} />, 'Reject')}
-          </>
+          </div>
         )}
       </div>
     </div>

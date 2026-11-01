@@ -11,6 +11,7 @@ import { emailFlags } from '../src/main/inbox/flags'
 import { combineMissing, localMissingDocs, policyFor, triageEmail } from '../src/main/inbox/triage'
 import { afterFailure, waitSeconds } from '../src/main/lock/throttle'
 import { checkZipBomb, scanPdfBytes, TooLargeError, zipEntries } from '../src/main/security/active-content'
+import { readScan } from '../src/main/security/defender'
 import { fileNameFlags, insideDir, isOpenable, safeFileName, uniqueName } from '../src/main/security/files'
 import { normalizeForScan, scanInjection, stripDelimiters } from '../src/main/security/injection'
 import { arabicScrambled, checkAnalysis, escalate, jdCopy, keywordStuffing, quotesCheckable, quoteInText, tokens } from '../src/main/security/output-checks'
@@ -499,5 +500,16 @@ describe('guards that keep solved threats solved', () => {
   })
   it('T-08: the CV analysis call has no tools', () => {
     expect(read('src/main/cv/prompts.ts') + read('src/main/ai/gemini.ts')).not.toMatch(/functionDeclarations|tools\s*:/)
+  })
+  it('T-20: a failed Defender scan is not a threat', () => {
+    expect(readScan(2, 'Scan starting...\nCmdTool: Failed with hr = 0x80508023. Check MpCmdRun.log')).toBe('unavailable')
+    expect(readScan(0, 'Scanning C:\\x\\cv.docx found no threats.')).toBe('clean')
+    expect(readScan(2, 'Scanning C:\\x\\cv.docx found 1 threats.\nLIST OF DETECTED THREATS')).toBe('threat')
+    expect(readScan(2, '')).toBe('unavailable')
+  })
+  it('the file reader process sets up its environment before pdf.js loads', () => {
+    // Without it pdf.js crashes in a utility process and every CV fails ("couldn't be read safely").
+    const firstImport = read('src/main/parser-worker.ts').match(/^import .*$/m)?.[0]
+    expect(firstImport).toBe("import './worker-env' // must stay first: pdf.js checks process.type when it loads")
   })
 })
