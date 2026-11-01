@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Briefcase, Fingerprint, Loader2, Lock } from 'lucide-react'
+import { Fingerprint, Loader2, Lock } from 'lucide-react'
 import { api, errorMessage } from '../api'
+import { Helper } from '../components/Helper'
 import { Button } from '../components/ui'
 
 export default function LockScreen({ onUnlock }: { onUnlock: () => void }): ReactNode {
@@ -39,11 +40,14 @@ export default function LockScreen({ onUnlock }: { onUnlock: () => void }): Reac
       }
       return
     }
-    if (await api.lock.unlock(pin)) onUnlock()
-    else {
+    try {
+      if (await api.lock.unlock(pin)) return onUnlock()
       setError('Wrong PIN. Try again.')
-      setPin('')
+    } catch (e) {
+      // too many wrong PINs: the main process enforces the wait
+      setError(errorMessage(e))
     }
+    setPin('')
   }
 
   const hello = async (): Promise<void> => {
@@ -72,10 +76,10 @@ export default function LockScreen({ onUnlock }: { onUnlock: () => void }): Reac
   )
 
   return (
-    <div className="flex h-full items-center justify-center bg-[#efede8]">
-      <div className="w-[360px] rounded-2xl border border-stone-200 bg-white p-8 text-center shadow-sm">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-accent text-white">
-          <Briefcase size={22} />
+    <div className="flex h-full items-center justify-center bg-rail">
+      <div className="w-[360px] rounded-md bg-white p-8 text-center shadow-[0_12px_40px_rgba(8,24,30,0.35)]">
+        <div className="mx-auto mb-4 flex justify-center">
+          <Helper size={64} title="Nour, your HR assistant" />
         </div>
         <div className="text-lg font-semibold">HR Assistant</div>
         <div className="mb-6 text-sm text-stone-500">

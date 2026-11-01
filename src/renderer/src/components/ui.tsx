@@ -3,7 +3,7 @@ import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, TextareaHTML
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger'
 
 const variants: Record<Variant, string> = {
-  primary: 'bg-accent text-white hover:bg-[#3243c0] border border-accent',
+  primary: 'bg-accent text-white hover:bg-accent-strong border border-accent',
   secondary: 'bg-white text-stone-800 border border-stone-300 hover:bg-stone-50',
   ghost: 'text-stone-600 hover:bg-stone-200/60 border border-transparent',
   danger: 'bg-white text-rose-700 border border-rose-200 hover:bg-rose-50'
@@ -70,7 +70,7 @@ export function Chip({ tone = 'neutral', children }: { tone?: Tone; children: Re
 }
 
 export function Card({ className = '', children }: { className?: string; children: ReactNode }): ReactNode {
-  return <div className={`rounded-xl border border-stone-200 bg-white ${className}`}>{children}</div>
+  return <div className={`rounded-md border border-stone-200 bg-white ${className}`}>{children}</div>
 }
 
 export function Toggle({
@@ -107,10 +107,10 @@ export function PageHeader({
   actions?: ReactNode
 }): ReactNode {
   return (
-    <div className="mb-5 flex items-start justify-between gap-4">
+    <div className="mb-6 flex items-end justify-between gap-4 border-b border-stone-900 pb-4">
       <div>
-        <h1 className="text-xl font-semibold text-stone-900">{title}</h1>
-        {subtitle && <div className="mt-0.5 text-sm text-stone-500">{subtitle}</div>}
+        <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.02em] text-balance text-stone-900">{title}</h1>
+        {subtitle && <div className="mt-1 max-w-[70ch] text-sm text-stone-600">{subtitle}</div>}
       </div>
       {actions && <div className="flex shrink-0 gap-2">{actions}</div>}
     </div>

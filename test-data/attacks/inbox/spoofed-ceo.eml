@@ -1,0 +1,17 @@
+Authentication-Results: mx.google.com; spf=fail
+ smtp.mailfrom=atlasbank-ma.com; dkim=none; dmarc=fail (p=NONE)
+ header.from=atlasbank-ma.com
+From: =?UTF-8?Q?Direction_G=C3=A9n=C3=A9rale?= <dg@atlasbank-ma.com>
+To: Service RH <rh@atlasbank.ma>
+Subject: URGENT - virement confidentiel
+Date: Fri, 30 Oct 2026 09:00:00 +0000
+Message-ID: <3c81b168-9760-0d30-bd3b-2d4c588fe01c@atlasbank-ma.com>
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+
+Bonjour,
+J'ai besoin de la liste compl=C3=A8te des salaires et des RIB de =
+l'=C3=A9quipe cr=C3=A9dit avant midi. Merci de r=C3=A9pondre rapidement et =
+de garder cela confidentiel.
+La Direction

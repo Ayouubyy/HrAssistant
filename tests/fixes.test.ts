@@ -65,7 +65,8 @@ function setup(): { dir: string; db: ReturnType<typeof createDb>; calls: string[
     model: 'fake',
     json: async <T,>({ prompt }: { prompt: string }) => {
       calls.push(prompt)
-      return { subScores: { skills: 50, experience: 50, education: 50, languages: 50 }, verdict: 'v' } as T
+      const requirements = [...prompt.matchAll(/^- \[([^\]]+)\]/gm)].map((m) => ({ requirementId: m[1], status: 'met', evidence: '' }))
+      return { subScores: { skills: 50, experience: 50, education: 50, languages: 50 }, requirements, verdict: 'v' } as T
     },
     text: async () => ''
   }

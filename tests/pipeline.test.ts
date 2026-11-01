@@ -4,8 +4,8 @@ import { join } from 'path'
 import { describe, expect, it } from 'vitest'
 import { createCache } from '../src/main/ai/cache'
 import type { AIProvider } from '../src/main/ai/provider'
-import { RetryableError } from '../src/main/ai/provider'
-import { normalizeAnalysis, redactContacts } from '../src/main/cv/prompts'
+import { InvalidModelOutputError, RetryableError } from '../src/main/ai/provider'
+import { analyzeCv, jobLanguage, normalizeAnalysis, redactContacts } from '../src/main/cv/prompts'
 import { createPipeline } from '../src/main/cv/pipeline'
 import { createDb } from '../src/main/store/db'
 import type { Candidate, JobFilter } from '../src/shared/types'
@@ -165,12 +165,22 @@ describe('pipeline', () => {
 })
 
 describe('normalizeAnalysis', () => {
-  it('repairs malformed model output', () => {
-    const a = normalizeAnalysis({ subScores: { skills: 'high', experience: 140 }, requirements: 'x' }, job, {
-      email: null,
-      phone: null
-    })
-    expect(a.subScores).toEqual({ skills: 0, experience: 100, education: 0, languages: 0 })
+  it('refuses incomplete model output instead of inventing a low score', () => {
+    const none = { email: null, phone: null }
+    expect(() => normalizeAnalysis({}, job, none)).toThrow(InvalidModelOutputError)
+    expect(() => normalizeAnalysis({ subScores: { skills: 'high', experience: 140 }, requirements: 'x' }, job, none)).toThrow(
+      InvalidModelOutputError
+    )
+    const noReqs = { ...goodRaw, requirements: [] }
+    expect(() => normalizeAnalysis(noReqs, job, none)).toThrow(InvalidModelOutputError)
+  })
+  it('clamps scores and fills cosmetic fields', () => {
+    const a = normalizeAnalysis(
+      { subScores: { skills: 140, experience: '70', education: -5, languages: 60 }, requirements: [{ requirementId: 'r1', status: 'odd' }] },
+      job,
+      { email: null, phone: null }
+    )
+    expect(a.subScores).toEqual({ skills: 100, experience: 70, education: 0, languages: 60 })
     expect(a.matchedSkills).toEqual([])
     expect(a.requirements).toEqual([{ requirementId: 'r1', status: 'unclear', evidence: '' }])
     expect(a.verdict).toBe('')
@@ -184,5 +194,21 @@ describe('redactContacts', () => {
     expect(r.text).toContain('2015-2017')
     expect(r.email).toBe('a.b@c.ma')
     expect(r.phone).toBe('+212 6 12 34 56 78')
+  })
+})
+
+describe('verdict language', () => {
+  it('names the job description language in the prompt', async () => {
+    expect(jobLanguage('We are looking for a software engineer with experience in SQL and APIs.')).toBe('English')
+    expect(jobLanguage('Nous recherchons un analyste crédit avec une expérience de 3 ans et la maîtrise des normes IFRS 9.')).toBe('French')
+    expect(jobLanguage('نبحث عن محلل ائتمان لديه خبرة في التحليل المالي')).toBe('Arabic')
+    let system = ''
+    const ai: AIProvider = {
+      model: 'fake',
+      json: async <T,>(o: { system: string }) => ((system = o.system), goodRaw as T),
+      text: async () => ''
+    }
+    await analyzeCv(ai, { ...job, description: 'We need a credit analyst with a finance degree and experience in risk.' }, 'x'.repeat(300))
+    expect(system).toContain('in English, whatever language the CV is written in')
   })
 })

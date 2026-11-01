@@ -3,6 +3,8 @@ import { AlertTriangle, Check, Eye, Loader2, RotateCcw, Star, X } from 'lucide-r
 import type { RankedCandidate } from '@shared/scoring'
 import type { Candidate, HrDecision, JobFilter } from '@shared/types'
 import { Button, Chip } from './ui'
+import { NeedsReviewChip } from './SecurityFlags'
+import { cvRef } from '../refs'
 
 export function scoreColor(score: number, threshold: number): string {
   if (score >= Math.max(threshold + 15, 75)) return 'text-emerald-700'
@@ -69,6 +71,7 @@ export function RankedRow({
       </div>
       <div className="min-w-0">
         <div className="flex items-center gap-2">
+          <span className="tabular text-xs font-medium text-stone-500">{cvRef(Number(label.match(/\d+/)?.[0] ?? 0))}</span>
           <span className="font-medium text-stone-900" dir="auto">
             {displayName(c, label)}
           </span>
@@ -85,6 +88,7 @@ export function RankedRow({
           )}
           {a.languages.length > 0 && <span className="text-xs text-stone-400">{a.languages.slice(0, 3).join(' · ')}</span>}
           {c.source === 'email' && <Chip tone="accent">From inbox</Chip>}
+          <NeedsReviewChip item={c} />
         </div>
         <div className={`mt-0.5 text-sm ${c.rejected ? 'text-rose-700' : 'text-stone-600'}`} dir="auto">
           {c.rejected ? c.reason : a.verdict}

@@ -1,10 +1,13 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { Briefcase, FileText, Plus } from 'lucide-react'
+import { ArrowRight, Plus } from 'lucide-react'
 import { PRESETS } from '@shared/presets'
 import type { JobFilter } from '@shared/types'
 import { api } from '../api'
 import type { Route } from '../App'
-import { Button, Card, Chip, PageHeader } from '../components/ui'
+import { Helper } from '../components/Helper'
+import { Button, PageHeader } from '../components/ui'
+
+const COLS = 'grid grid-cols-[minmax(0,1fr)_120px_64px_96px_104px_72px]'
 
 export default function JobFilters({ go }: { go: (r: Route) => void }): ReactNode {
   const [jobs, setJobs] = useState<JobFilter[] | null>(null)
@@ -22,10 +25,10 @@ export default function JobFilters({ go }: { go: (r: Route) => void }): ReactNod
   if (!jobs) return null
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="mx-auto max-w-5xl">
       <PageHeader
         title="Job filters"
-        subtitle="One filter per open position. Add the job description, drop in CVs, and let the assistant pre-screen them."
+        subtitle="One filter per open position. Add the job description, drop in CVs, and I pre-screen them. You make the final call on every candidate."
         actions={
           <Button variant="primary" onClick={() => go({ page: 'newJob' })}>
             <Plus size={15} /> New job filter
@@ -33,40 +36,60 @@ export default function JobFilters({ go }: { go: (r: Route) => void }): ReactNod
         }
       />
       {jobs.length === 0 ? (
-        <Card className="flex flex-col items-center px-8 py-14 text-center">
-          <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-accent-soft text-accent">
-            <Briefcase size={20} />
+        <div className="flex items-center gap-5 py-10">
+          <Helper size={56} mood="happy" />
+          <div className="flex-1">
+            <div className="text-base font-semibold text-stone-900">Create your first job filter</div>
+            <div className="mt-1 max-w-md text-sm text-stone-600">
+              Paste a job description, mark the must-haves, then drop in as many CVs as you have.
+            </div>
           </div>
-          <div className="text-base font-semibold">Create your first job filter</div>
-          <div className="mt-1 max-w-sm text-sm text-stone-500">
-            Paste a job description, mark the must-haves, then drop in as many CVs as you have. You make the final call on
-            every candidate.
-          </div>
-          <Button variant="primary" className="mt-5" onClick={() => go({ page: 'newJob' })}>
+          <Button variant="primary" onClick={() => go({ page: 'newJob' })}>
             <Plus size={15} /> New job filter
           </Button>
-        </Card>
+        </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3">
+        <div role="table" aria-label="Job filters">
+          <div role="row" className={`${COLS} border-b border-stone-300 pb-2 text-[11px] font-semibold tracking-wide text-stone-500 uppercase`}>
+            <span role="columnheader">Role</span>
+            <span role="columnheader">Industry</span>
+            <span role="columnheader" className="text-right">
+              CVs
+            </span>
+            <span role="columnheader" className="text-right">
+              Must-haves
+            </span>
+            <span role="columnheader" className="text-right">
+              Created
+            </span>
+            <span role="columnheader" />
+          </div>
           {jobs.map((j) => (
             <button
+              role="row"
               key={j.id}
               onClick={() => go({ page: 'job', jobId: j.id })}
-              className="cursor-pointer rounded-xl border border-stone-200 bg-white p-4 text-left transition hover:border-stone-300 hover:shadow-sm"
+              className={`${COLS} tabular w-full cursor-pointer items-baseline border-b border-stone-200 py-3 text-left text-sm hover:bg-white/70`}
             >
-              <div className="flex items-start justify-between gap-2">
-                <div className="font-semibold text-stone-900" dir="auto">
-                  {j.title}
-                </div>
-                <Chip>{PRESETS[j.preset].label}</Chip>
-              </div>
-              <div className="mt-2 flex items-center gap-3 text-xs text-stone-500">
-                <span className="flex items-center gap-1">
-                  <FileText size={13} /> {counts[j.id] ?? 0} CVs
-                </span>
-                <span>{j.requirements.filter((r) => r.mustHave).length} must-haves</span>
-                <span>Created {new Date(j.createdAt).toLocaleDateString()}</span>
-              </div>
+              <span role="cell" className="truncate pr-4 text-[15px] font-semibold text-stone-900" dir="auto">
+                {j.title}
+                {j.closedAt && <span className="ml-2 text-xs font-normal text-stone-500">closed</span>}
+              </span>
+              <span role="cell" className="text-stone-600">
+                {PRESETS[j.preset].label}
+              </span>
+              <span role="cell" className="text-right text-stone-800">
+                {counts[j.id] ?? 0}
+              </span>
+              <span role="cell" className="text-right text-stone-800">
+                {j.requirements.filter((r) => r.mustHave).length}
+              </span>
+              <span role="cell" className="text-right text-stone-600">
+                {new Date(j.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+              </span>
+              <span role="cell" className="flex justify-end text-accent">
+                <ArrowRight size={15} />
+              </span>
             </button>
           ))}
         </div>

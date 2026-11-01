@@ -1,0 +1,39 @@
+{
+  "name": "HR Assistant",
+  "world": "Annual Report Grid",
+  "seed": "964afa36",
+  "colors": {
+    "paper": "#f4f5f3",
+    "surface": "#ffffff",
+    "ink": "#161918",
+    "rule": "#dde0dc",
+    "accent": "#1f4e5f",
+    "accentStrong": "#163b48",
+    "accentSoft": "#e2ecef",
+    "rail": "#1f4e5f",
+    "railInk": "#eaf2f4",
+    "railMuted": "#a3bec7",
+    "railLine": "#2f6173",
+    "needs": "#c43325",
+    "progress": "#a87412",
+    "ochre": "#e3b23c"
+  },
+  "fonts": {
+    "ui": "Schibsted Grotesk Variable",
+    "arabic": "Noto Sans Arabic"
+  },
+  "radii": {
+    "tag": 3,
+    "control": 6,
+    "panel": 6
+  },
+  "motion": {
+    "helperBlink": "5s loop, reduced-motion off",
+    "transitions": "colors only, 150ms"
+  },
+  "shadows": {
+    "lockCard": "0 12px 40px rgba(8,24,30,0.35)"
+  },
+  "focus": "2px solid accent, offset 2px",
+  "source": "src/renderer/src/assets/main.css"
+}

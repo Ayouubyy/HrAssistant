@@ -57,8 +57,11 @@ export async function fetchInbox(a: GmailAuth, limit = 30): Promise<Buffer[]> {
   return out
 }
 
-export function replyAddress(from: string): string {
-  return from.match(/<([^>]+)>/)?.[1] ?? from.trim()
+// Replies go where the sender asked (Reply-To), as in any mail client; a different domain is flagged
+// and the send confirmation names the real recipient.
+export function replyAddress(e: { from: string; replyTo?: string }): string {
+  const target = e.replyTo || e.from
+  return target.match(/<([^>]+)>/)?.[1] ?? target.trim()
 }
 
 export async function sendReply(

@@ -1,23 +1,29 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
-import { Briefcase, Inbox as InboxIcon, Lock, Plug, Plus, Settings as SettingsIcon } from 'lucide-react'
+import { Briefcase, Home as HomeIcon, Inbox as InboxIcon, Lock, Plug, Plus, Settings as SettingsIcon } from 'lucide-react'
 import type { Candidate, EmailItem, JobFilter } from '@shared/types'
 import { api } from './api'
 import AssistantPanel, { type AssistantContext } from './components/AssistantPanel'
+import { Helper } from './components/Helper'
 import JobEditor from './pages/JobEditor'
 import JobFilterPage from './pages/JobFilterPage'
 import JobFilters from './pages/JobFilters'
 import Settings from './pages/Settings'
 import Inbox from './pages/Inbox'
 import Accounts from './pages/Accounts'
+import Home from './pages/Home'
+import ComingSoon from './pages/ComingSoon'
+import { SOON, type SoonId } from './roadmap'
 
 export type Route =
+  | { page: 'home' }
   | { page: 'jobs' }
   | { page: 'newJob' }
   | { page: 'editJob'; jobId: string }
-  | { page: 'job'; jobId: string }
-  | { page: 'inbox' }
+  | { page: 'job'; jobId: string; candidateId?: string }
+  | { page: 'inbox'; emailId?: string }
   | { page: 'accounts' }
   | { page: 'settings' }
+  | { page: 'soon'; id: SoonId }
 
 export interface AssistantFilter {
   label: string
@@ -33,7 +39,7 @@ function NavItem({
   onClick,
   badge
 }: {
-  icon: ReactNode
+  icon?: ReactNode
   label: string
   active: boolean
   onClick: () => void
@@ -42,27 +48,47 @@ function NavItem({
   return (
     <button
       onClick={onClick}
-      className={`flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-sm transition ${
-        active ? 'bg-white font-medium text-stone-900 shadow-sm' : 'text-stone-600 hover:bg-stone-200/60'
-      }`}
+      aria-current={active ? 'page' : undefined}
+      className={`flex w-full cursor-pointer items-center gap-2.5 px-3 py-[7px] text-left text-sm transition-colors ${
+        active ? 'bg-white text-stone-900' : 'text-rail-ink hover:bg-rail-line'
+      } ${icon ? '' : 'pl-[38px]'}`}
     >
-      {icon}
-      <span className="flex-1 truncate">{label}</span>
+      {icon && <span className={active ? 'text-accent' : 'text-rail-muted'}>{icon}</span>}
+      <span className="flex-1 truncate" dir="auto">
+        {label}
+      </span>
       {badge}
     </button>
   )
 }
 
+function RailHeading({ children }: { children: ReactNode }): ReactNode {
+  return <div className="px-3 pt-5 pb-1.5 text-[11px] font-semibold tracking-wide text-rail-muted uppercase">{children}</div>
+}
+
 export default function App({ onLock }: { onLock: () => void }): ReactNode {
-  const [route, setRoute] = useState<Route>({ page: 'jobs' })
+  const [route, setRoute] = useState<Route>({ page: 'home' })
   const [jobs, setJobs] = useState<JobFilter[]>([])
   const [ctx, setCtx] = useState<AssistantContext>({ kind: 'none' })
   const [filter, setFilter] = useState<AssistantFilter | null>(null)
+  const [unread, setUnread] = useState(0)
 
   useEffect(() => {
     const load = (): void => void api.jobs.list().then(setJobs)
     load()
     return api.on('jobs:changed', load)
+  }, [])
+
+  useEffect(() => {
+    const load = (): void =>
+      void api.inbox.list().then((es) => setUnread(es.filter((e) => e.triage?.urgent && e.auth?.verdict !== 'spoofed').length))
+    load()
+    const a = api.on('emails:changed', load)
+    const b = api.on('emails:updated', load)
+    return () => {
+      a()
+      b()
+    }
   }, [])
 
   const go = useCallback((r: Route) => {
@@ -79,6 +105,8 @@ export default function App({ onLock }: { onLock: () => void }): ReactNode {
 
   const page = (): ReactNode => {
     switch (route.page) {
+      case 'home':
+        return <Home go={go} />
       case 'jobs':
         return <JobFilters go={go} />
       case 'newJob':
@@ -88,8 +116,9 @@ export default function App({ onLock }: { onLock: () => void }): ReactNode {
       case 'job':
         return (
           <JobFilterPage
-            key={route.jobId}
+            key={`${route.jobId}-${route.candidateId ?? ''}`}
             jobId={route.jobId}
+            initialOpenId={route.candidateId}
             go={go}
             onContext={onJobContext}
             assistantFilter={filter}
@@ -97,11 +126,13 @@ export default function App({ onLock }: { onLock: () => void }): ReactNode {
           />
         )
       case 'inbox':
-        return <Inbox go={go} onContext={onEmailContext} />
+        return <Inbox key={route.emailId ?? 'inbox'} go={go} onContext={onEmailContext} initialSelected={route.emailId} />
       case 'accounts':
         return <Accounts />
       case 'settings':
         return <Settings />
+      case 'soon':
+        return <ComingSoon key={route.id} id={route.id} />
     }
   }
 
@@ -109,79 +140,73 @@ export default function App({ onLock }: { onLock: () => void }): ReactNode {
 
   return (
     <div className="flex h-full">
-      <aside className="flex w-60 shrink-0 flex-col border-r border-stone-200 bg-[#efede8] p-3">
-        <div className="mb-5 flex items-center gap-2 px-2 pt-1">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent text-white">
-            <Briefcase size={15} />
+      <aside className="flex w-[232px] shrink-0 flex-col bg-rail text-rail-ink">
+        <div className="flex items-center gap-2.5 px-3 pt-4 pb-5">
+          <div className="rounded-full bg-white p-0.5">
+            <Helper size={30} />
           </div>
-          <div className="font-semibold text-stone-900">HR Assistant</div>
+          <div className="leading-tight">
+            <div className="font-semibold tracking-[-0.01em] text-white">HR Assistant</div>
+            <div className="text-[11px] text-rail-muted">Atlas Bank · demo</div>
+          </div>
         </div>
-        <nav className="flex min-h-0 flex-1 flex-col gap-0.5">
-          <NavItem
-            icon={<Briefcase size={16} />}
-            label="Job filters"
-            active={route.page === 'jobs'}
-            onClick={() => go({ page: 'jobs' })}
-          />
-          <button
-            onClick={() => go({ page: 'newJob' })}
-            className={`flex w-full cursor-pointer items-center gap-2 rounded-md py-1 pr-2 pl-8 text-left text-sm hover:bg-stone-200/60 ${
-              route.page === 'newJob' ? 'font-medium text-accent' : 'text-accent'
-            }`}
-          >
-            <Plus size={14} /> New job filter
-          </button>
-          <div className="max-h-[40vh] overflow-y-auto">
-            {jobs.map((j) => (
-              <button
-                key={j.id}
-                onClick={() => go({ page: 'job', jobId: j.id })}
-                dir="auto"
-                className={`block w-full cursor-pointer truncate rounded-md py-1 pr-2 pl-8 text-left text-sm transition ${
-                  activeJob === j.id ? 'bg-white font-medium text-stone-900 shadow-sm' : 'text-stone-600 hover:bg-stone-200/60'
-                }`}
-              >
-                {j.title}
-              </button>
-            ))}
-          </div>
-          <div className="h-3" />
+        <nav aria-label="Main" className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+          <NavItem icon={<HomeIcon size={16} />} label="Home" active={route.page === 'home'} onClick={() => go({ page: 'home' })} />
           <NavItem
             icon={<InboxIcon size={16} />}
             label="Inbox"
             active={route.page === 'inbox'}
             onClick={() => go({ page: 'inbox' })}
+            badge={
+              unread > 0 ? (
+                <span className="tabular rounded-[3px] bg-needs px-1.5 text-[11px] font-semibold text-white">{unread}</span>
+              ) : undefined
+            }
           />
-          <NavItem
-            icon={<Plug size={16} />}
-            label="Connected accounts"
-            active={route.page === 'accounts'}
-            onClick={() => go({ page: 'accounts' })}
-          />
-          <NavItem
-            icon={<SettingsIcon size={16} />}
-            label="Settings"
-            active={route.page === 'settings'}
-            onClick={() => go({ page: 'settings' })}
-          />
+          <NavItem icon={<Briefcase size={16} />} label="Job filters" active={route.page === 'jobs'} onClick={() => go({ page: 'jobs' })} />
+          {jobs.map((j) => (
+            <NavItem key={j.id} label={j.title} active={activeJob === j.id} onClick={() => go({ page: 'job', jobId: j.id })} />
+          ))}
+          <button
+            onClick={() => go({ page: 'newJob' })}
+            className={`flex w-full cursor-pointer items-center gap-2 py-[7px] pr-3 pl-[38px] text-left text-sm hover:bg-rail-line ${
+              route.page === 'newJob' ? 'text-white' : 'text-rail-muted'
+            }`}
+          >
+            <Plus size={14} /> New job filter
+          </button>
+
+          <RailHeading>Coming soon</RailHeading>
+          {SOON.map((s) => (
+            <NavItem
+              key={s.id}
+              label={s.title}
+              active={route.page === 'soon' && route.id === s.id}
+              onClick={() => go({ page: 'soon', id: s.id })}
+            />
+          ))}
+          <NavItem label="Full roadmap" active={route.page === 'soon' && route.id === 'roadmap'} onClick={() => go({ page: 'soon', id: 'roadmap' })} />
+
+          <div className="mt-auto pt-6">
+            <NavItem icon={<Plug size={16} />} label="Connected accounts" active={route.page === 'accounts'} onClick={() => go({ page: 'accounts' })} />
+            <NavItem icon={<SettingsIcon size={16} />} label="Settings" active={route.page === 'settings'} onClick={() => go({ page: 'settings' })} />
+          </div>
         </nav>
-        <div className="flex items-center justify-between px-2 pt-3 text-xs text-stone-500">
-          <span className="flex items-center gap-1.5">
-            <Lock size={12} /> Stored on this computer
-          </span>
+        <div className="mt-2 flex items-center justify-between border-t border-rail-line px-3 py-3 text-xs text-rail-muted">
+          <span>Stored on this computer</span>
           <button
             onClick={async () => {
               await api.lock.lock()
               onLock()
             }}
-            className="cursor-pointer rounded px-1.5 py-0.5 hover:bg-stone-200/60 hover:text-stone-800"
+            className="flex cursor-pointer items-center gap-1 rounded-[3px] px-1.5 py-0.5 text-rail-ink hover:bg-rail-line"
           >
-            Lock
+            <Lock size={12} /> Lock
           </button>
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1 overflow-y-auto px-8 py-7">{page()}</main>
+      <main className="min-w-0 flex-1 overflow-y-auto px-10 py-8">{page()}</main>
 
       <AssistantPanel ctx={ctx} onFilter={setFilter} />
     </div>

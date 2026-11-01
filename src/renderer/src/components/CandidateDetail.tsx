@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react'
-import { AlertTriangle, CheckCircle2, CircleHelp, ExternalLink, X, XCircle } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, CircleHelp, ExternalLink, Trash2, X, XCircle } from 'lucide-react'
 import type { RankedCandidate } from '@shared/scoring'
 import type { JobFilter } from '@shared/types'
 import { Button, Chip } from './ui'
 import { displayName, scoreColor } from './CandidateRow'
+import { SecurityFlags } from './SecurityFlags'
 
 const statusIcon = {
   met: <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-emerald-600" />,
@@ -32,13 +33,17 @@ export default function CandidateDetail({
   label,
   job,
   onClose,
-  onOpenCv
+  onOpenCv,
+  onDismissFlags,
+  onDelete
 }: {
   c: RankedCandidate
   label: string
   job: JobFilter
   onClose: () => void
   onOpenCv: () => void
+  onDismissFlags: () => void
+  onDelete: () => void
 }): ReactNode {
   const a = c.analysis!
   return (
@@ -70,9 +75,11 @@ export default function CandidateDetail({
             {c.reason}
           </div>
         )}
-        <div className="mb-5 rounded-lg bg-stone-50 px-3 py-2.5 text-sm text-stone-700" dir="auto">
+        <SecurityFlags item={c} onDismiss={onDismissFlags} />
+        <div className="mb-1 rounded-lg bg-stone-50 px-3 py-2.5 text-sm text-stone-700" dir="auto">
           {a.verdict}
         </div>
+        <div className="mb-5 px-1 text-xs text-stone-400">Based on what the CV claims. Check key claims in the interview.</div>
 
         <div className="mb-6 grid grid-cols-2 gap-x-5 gap-y-3">
           <Bar label="Skills" value={a.subScores.skills} weight={job.weights.skills} />
@@ -139,12 +146,25 @@ export default function CandidateDetail({
           </div>
         </div>
 
-        <Button onClick={onOpenCv}>
-          <ExternalLink size={14} /> Open original CV
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={onOpenCv}>
+            <ExternalLink size={14} /> Open original CV
+          </Button>
+          <Button
+            variant="danger"
+            onClick={() => {
+              if (confirm('Delete this candidate, its CV copy and its AI results from this computer?')) onDelete()
+            }}
+          >
+            <Trash2 size={14} /> Delete
+          </Button>
+        </div>
+        {c.scan === 'clean' && (
+          <div className="mt-3 text-xs text-emerald-700">Scanned by Microsoft Defender: no threat found.</div>
+        )}
         <div className="mt-6 text-xs text-stone-400">
-          The assistant was told to ignore name, gender, age, photo, nationality and address when scoring. Contact details
-          were removed before the CV was sent.
+          The assistant was told to ignore name, gender, age, photo, nationality and address when scoring. Contact details,
+          birth date, nationality, address and bank details were removed before the CV was sent.
         </div>
       </div>
     </div>

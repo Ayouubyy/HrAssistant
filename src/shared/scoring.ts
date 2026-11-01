@@ -1,3 +1,4 @@
+import { needsReview } from './flags'
 import type { Candidate, Evaluation, JobFilter, SubScores, Weights } from './types'
 
 const KEYS: (keyof SubScores)[] = ['skills', 'experience', 'education', 'languages']
@@ -39,7 +40,10 @@ export function rankCandidates(
     .map((c) => ({ ...c, ...evaluateCandidate(c, job) }))
     .sort((a, b) => b.score - a.score)
   return {
-    ranked: evaluated.filter((c) => !c.rejected),
+    // Candidates with an undismissed high flag sit below clean ones; their score and reject status don't change.
+    ranked: evaluated
+      .filter((c) => !c.rejected)
+      .sort((a, b) => Number(needsReview(a)) - Number(needsReview(b)) || b.score - a.score),
     rejected: evaluated.filter((c) => c.rejected),
     pending
   }

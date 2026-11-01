@@ -1,0 +1,15 @@
+Authentication-Results: mx.google.com; spf=softfail
+ smtp.mailfrom=evil.example; dkim=none; dmarc=fail header.from=atlasbank.ma
+Authentication-Results: mx.google.com; spf=pass; dkim=pass; dmarc=pass
+ header.from=atlasbank.ma
+From: Karim El Mansouri <k.elmansouri@atlasbank.ma>
+To: Service RH <rh@atlasbank.ma>
+Subject: Changement de RIB
+Date: Fri, 30 Oct 2026 09:00:00 +0000
+Message-ID: <df698e03-08e5-0194-89af-ab4641f3cff8@atlasbank.ma>
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+
+Bonjour, merci de verser mon salaire sur mon nouveau compte. Cordialement, =
+Karim

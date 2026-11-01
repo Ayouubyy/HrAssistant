@@ -1,9 +1,43 @@
+@import '@fontsource-variable/schibsted-grotesk/index.css';
+@import '@fontsource/noto-sans-arabic/400.css';
+@import '@fontsource/noto-sans-arabic/500.css';
+@import '@fontsource/noto-sans-arabic/600.css';
 @import 'tailwindcss';
 
+/* Annual Report Grid: cool off-white ground, ink, petrol rail, red only for HR decisions, ochre only for work in progress. */
 @theme {
-  --font-sans: 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
-  --color-accent: #3b4fd8;
-  --color-accent-soft: #eef0fd;
+  --font-sans: 'Schibsted Grotesk Variable', 'Noto Sans Arabic', 'Segoe UI', system-ui, sans-serif;
+
+  --color-stone-50: #f4f5f3;
+  --color-stone-100: #eceeeb;
+  --color-stone-200: #dde0dc;
+  --color-stone-300: #c6cbc6;
+  --color-stone-400: #959c98;
+  --color-stone-500: #6a726e;
+  --color-stone-600: #515855;
+  --color-stone-700: #3d4340;
+  --color-stone-800: #272c2a;
+  --color-stone-900: #161918;
+  --color-stone-950: #0c0e0d;
+
+  --color-accent: #1f4e5f;
+  --color-accent-strong: #163b48;
+  --color-accent-soft: #e2ecef;
+
+  --color-rail: #1f4e5f;
+  --color-rail-ink: #eaf2f4;
+  --color-rail-muted: #a3bec7;
+  --color-rail-line: #2f6173;
+
+  --color-paper: #f4f5f3;
+  --color-ink: #161918;
+  --color-rule: #dde0dc;
+
+  --color-needs: #c43325;
+  --color-needs-soft: #fbe9e6;
+  --color-progress: #a87412;
+  --color-progress-soft: #f6ebcf;
+  --color-ochre: #e3b23c;
 }
 
 html,
@@ -14,12 +48,71 @@ body,
 
 body {
   margin: 0;
-  background: #f7f6f3;
-  color: #1c1b19;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
   font-size: 14px;
+  font-feature-settings: 'ss01';
   -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: #c9dde3;
+  color: var(--color-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-stone-300) transparent;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
 }
 
 [dir='auto'] {
   unicode-bidi: plaintext;
+}
+
+@keyframes helper-blink {
+  0%,
+  92%,
+  100% {
+    transform: scaleY(1);
+  }
+  96% {
+    transform: scaleY(0.1);
+  }
+}
+
+@keyframes helper-think {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .helper-eye {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: helper-blink 5s infinite;
+  }
+  .helper-dot {
+    animation: helper-think 1.1s infinite;
+  }
+  .helper-dot:nth-child(2) {
+    animation-delay: 0.18s;
+  }
+  .helper-dot:nth-child(3) {
+    animation-delay: 0.36s;
+  }
 }

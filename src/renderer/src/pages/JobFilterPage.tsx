@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react'
-import { Download, Pencil, Trash2, Upload, X } from 'lucide-react'
+import { Archive, ArchiveRestore, Download, Pencil, RotateCcw, Trash2, Upload, X } from 'lucide-react'
+import { needsReview } from '@shared/flags'
 import { PRESETS } from '@shared/presets'
 import { rankCandidates, type RankedCandidate } from '@shared/scoring'
 import type { Candidate, JobFilter, Weights } from '@shared/types'
-import { api } from '../api'
+import { api, errorMessage } from '../api'
 import type { AssistantFilter, Route } from '../App'
 import CandidateDetail from '../components/CandidateDetail'
 import { PendingRow, RankedRow } from '../components/CandidateRow'
 import { Button, Card, Chip, Toggle } from '../components/ui'
 
-type Tab = 'ranked' | 'rejected' | 'shortlist'
+type Tab = 'ranked' | 'rejected' | 'shortlist' | 'review'
 
 function Slider({
   label,
@@ -34,7 +35,7 @@ function Slider({
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="accent-[#3b4fd8]"
+        className="accent-[#1f4e5f]"
       />
       <span className="text-right font-medium text-stone-900 tabular-nums">{value}</span>
     </label>
@@ -59,8 +60,10 @@ export default function JobFilterPage({
   go,
   onContext,
   assistantFilter,
-  clearAssistantFilter
+  clearAssistantFilter,
+  initialOpenId
 }: {
+  initialOpenId?: string
   jobId: string
   go: (r: Route) => void
   onContext: (job: JobFilter | null, candidates: Candidate[]) => void
@@ -70,7 +73,7 @@ export default function JobFilterPage({
   const [job, setJob] = useState<JobFilter | null>(null)
   const [cands, setCands] = useState<Candidate[]>([])
   const [tab, setTab] = useState<Tab>('ranked')
-  const [openId, setOpenId] = useState<string | null>(null)
+  const [openId, setOpenId] = useState<string | null>(initialOpenId ?? null)
   const [dragging, setDragging] = useState(false)
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
 
@@ -78,7 +81,11 @@ export default function JobFilterPage({
     setJob(null)
     api.jobs.get(jobId).then(setJob)
     api.candidates.list(jobId).then(setCands)
-    return api.on('candidates:updated', (p) => {
+    const offRemoved = api.on('candidates:removed', (p) => {
+      const r = p as { id: string; jobId: string }
+      if (r.jobId === jobId) setCands((prev) => prev.filter((c) => c.id !== r.id))
+    })
+    const offUpdated = api.on('candidates:updated', (p) => {
       const c = p as Candidate
       if (c.jobId !== jobId) return
       setCands((prev) => {
@@ -89,6 +96,10 @@ export default function JobFilterPage({
         return next
       })
     })
+    return () => {
+      offRemoved()
+      offUpdated()
+    }
   }, [jobId])
 
   useEffect(() => {
@@ -134,10 +145,12 @@ export default function JobFilterPage({
   const done = cands.filter((c) => c.status === 'done').length
   const working = cands.filter((c) => c.status === 'pending' || c.status === 'processing').length
   const shortlisted = [...ranked.ranked, ...ranked.rejected].filter((c) => c.hrDecision === 'shortlist')
+  const review = [...ranked.ranked, ...ranked.rejected].filter((c) => needsReview(c))
   const lists: Record<Tab, RankedCandidate[]> = {
     ranked: applyAssistantFilter(ranked.ranked, assistantFilter),
     rejected: applyAssistantFilter(ranked.rejected, assistantFilter),
-    shortlist: applyAssistantFilter(shortlisted, assistantFilter)
+    shortlist: applyAssistantFilter(shortlisted, assistantFilter),
+    review: applyAssistantFilter(review, assistantFilter)
   }
   const list = lists[tab]
   const open = openId ? [...ranked.ranked, ...ranked.rejected].find((c) => c.id === openId) : null
@@ -167,11 +180,12 @@ export default function JobFilterPage({
     >
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-stone-900" dir="auto">
+          <h1 className="text-[26px] leading-tight font-semibold tracking-[-0.02em] text-stone-900" dir="auto">
             {job.title}
           </h1>
           <div className="mt-0.5 flex items-center gap-2 text-sm text-stone-500">
             <Chip>{PRESETS[job.preset].label}</Chip>
+            {job.closedAt && <Chip tone="warning">Closed</Chip>}
             <span>
               {cands.length} CVs · {done} analyzed
               {working > 0 && <span className="text-accent"> · analyzing {working}…</span>}
@@ -181,6 +195,23 @@ export default function JobFilterPage({
         <div className="flex shrink-0 gap-2">
           <Button variant="ghost" onClick={() => go({ page: 'editJob', jobId })}>
             <Pencil size={14} /> Edit
+          </Button>
+          <Button
+            variant="ghost"
+            disabled={done === 0 || working > 0}
+            title="Analyse every CV of this job again with the current AI settings"
+            onClick={() => {
+              if (confirm(`Analyse all ${cands.length} CVs again? Your shortlist and decisions are kept.`)) void api.jobs.rescreen(jobId)
+            }}
+          >
+            <RotateCcw size={14} /> Re-screen
+          </Button>
+          <Button
+            variant="ghost"
+            title={job.closedAt ? 'Reopen this job' : 'Close this job (its candidates can then be deleted automatically, see Settings)'}
+            onClick={() => update({ closedAt: job.closedAt ? undefined : new Date().toISOString() })}
+          >
+            {job.closedAt ? <ArchiveRestore size={14} /> : <Archive size={14} />} {job.closedAt ? 'Reopen' : 'Close'}
           </Button>
           <Button
             variant="ghost"
@@ -246,7 +277,7 @@ export default function JobFilterPage({
 
       {cands.length === 0 ? (
         <div
-          className={`flex flex-col items-center rounded-xl border-2 border-dashed px-8 py-16 text-center transition ${
+          className={`flex flex-col items-center rounded-md border-2 border-dashed px-8 py-16 text-center transition ${
             dragging ? 'border-accent bg-accent-soft' : 'border-stone-300 bg-white'
           }`}
         >
@@ -264,6 +295,7 @@ export default function JobFilterPage({
               {tabBtn('ranked', 'Ranked', lists.ranked.length)}
               {tabBtn('rejected', 'Rejected', lists.rejected.length)}
               {tabBtn('shortlist', 'Shortlist', lists.shortlist.length)}
+              {lists.review.length > 0 && tabBtn('review', 'Needs review', lists.review.length)}
             </div>
             {dragging && <span className="text-sm text-accent">Drop to add CVs</span>}
             {assistantFilter && (
@@ -290,7 +322,11 @@ export default function JobFilterPage({
           ))}
           {list.length === 0 && ranked.pending.length === 0 && (
             <div className="border-t border-stone-100 px-4 py-8 text-center text-sm text-stone-500">
-              {tab === 'shortlist' ? 'Shortlist candidates to see them here.' : 'No candidates here.'}
+              {tab === 'shortlist'
+                ? 'Shortlist candidates to see them here.'
+                : tab === 'review'
+                  ? 'Nothing needs a security review.'
+                  : 'No candidates here.'}
             </div>
           )}
           {tab === 'ranked' && ranked.pending.map((c) => (
@@ -305,7 +341,12 @@ export default function JobFilterPage({
           label={labels.get(open.id)!}
           job={job}
           onClose={() => setOpenId(null)}
-          onOpenCv={() => api.candidates.open(open.id)}
+          onOpenCv={() => api.candidates.open(open.id).catch((e) => alert(errorMessage(e)))}
+          onDismissFlags={() => patchCand(open.id, { flagsDismissed: true })}
+          onDelete={() => {
+            setOpenId(null)
+            void api.candidates.remove(open.id)
+          }}
         />
       )}
     </div>

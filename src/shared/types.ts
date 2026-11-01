@@ -36,6 +36,36 @@ export interface CandidateAnalysis {
   missingSkills: string[]
   redFlags: string[]
   verdict: string
+  suspiciousInstructions?: string[]
+}
+
+export type FlagSeverity = 'info' | 'warn' | 'high'
+
+export type FlagCode =
+  | 'injection_phrase'
+  | 'model_reported_injection'
+  | 'hidden_text'
+  | 'invalid_output'
+  | 'quote_not_found'
+  | 'score_anomaly'
+  | 'jd_copy'
+  | 'keyword_stuffing'
+  | 'active_content'
+  | 'malware'
+  | 'sender_unverified'
+  | 'sender_spoofed'
+  | 'lookalike_domain'
+  | 'disposable_domain'
+  | 'reply_to_mismatch'
+  | 'draft_has_link'
+  | 'unsafe_attachment'
+
+// A security signal shown to HR. Flags never change a score or reject anyone; HR can dismiss them.
+export interface ReviewFlag {
+  code: FlagCode
+  severity: FlagSeverity
+  detail: string
+  evidence?: string
 }
 
 export type HrDecision = 'shortlist' | 'maybe' | 'reject' | null
@@ -53,6 +83,12 @@ export interface Candidate {
   hrDecision: HrDecision
   restored: boolean
   revealed: boolean
+  flags?: ReviewFlag[]
+  flagsDismissed?: boolean
+  // AI cache entries used for this candidate, removed when it's deleted
+  cacheIds?: string[]
+  // Microsoft Defender result for the CV file
+  scan?: 'clean' | 'threat' | 'unavailable'
 }
 
 export interface JobFilter {
@@ -66,6 +102,7 @@ export interface JobFilter {
   autoRejectMissingMustHave: boolean
   autoRejectBelowThreshold: boolean
   createdAt: string
+  closedAt?: string
 }
 
 export interface Evaluation {
@@ -89,6 +126,9 @@ export interface EmailTriage {
   urgent: boolean
   urgencyReason: string
   summary: string
+  suspiciousInstructions?: string[]
+  // what the AI thought was missing, when it differs from the local attachment check
+  aiMissingDocuments?: string[]
   draftReply: string | null
   missingDocuments: string[]
 }
@@ -97,6 +137,8 @@ export interface EmailAttachment {
   fileName: string
   path: string
   isCv: boolean
+  openable?: boolean
+  flags?: ReviewFlag[]
 }
 
 export interface EmailItem {
@@ -109,8 +151,20 @@ export interface EmailItem {
   threadCount: number
   messageId?: string
   attachments: EmailAttachment[]
+  replyTo?: string
+  auth?: SenderAuth
   triage?: EmailTriage
   triageError?: string
+  flags?: ReviewFlag[]
+  flagsDismissed?: boolean
+}
+
+// Read from Gmail's Authentication-Results header. 'unknown' when there is none (an imported .eml file).
+export interface SenderAuth {
+  spf: string | null
+  dkim: string | null
+  dmarc: string | null
+  verdict: 'verified' | 'unverified' | 'spoofed' | 'unknown'
 }
 
 export interface AppSettings {
@@ -119,4 +173,7 @@ export interface AppSettings {
   requiredDocs: string[]
   doubleCheck: boolean
   concurrency: number
+  companyDomains: string[]
+  autoLockMinutes: number
+  retentionDays: number
 }

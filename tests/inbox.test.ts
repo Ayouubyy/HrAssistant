@@ -4,7 +4,7 @@ import { join } from 'path'
 import { describe, expect, it } from 'vitest'
 import { loadEmlFolder, parseEmail } from '../src/main/inbox/eml'
 import { normalizeTriage, triageEmail } from '../src/main/inbox/triage'
-import type { AIProvider } from '../src/main/ai/provider'
+import { InvalidModelOutputError, type AIProvider } from '../src/main/ai/provider'
 import { DEFAULT_SETTINGS } from '../src/main/store/settings-defaults'
 
 const inbox = join(__dirname, '..', 'test-data', 'inbox')
@@ -40,12 +40,19 @@ describe('loadEmlFolder', () => {
 })
 
 describe('normalizeTriage', () => {
-  it('repairs malformed output', () => {
-    expect(normalizeTriage({ category: 'spam', urgent: 'yes', summary: 3, missingDocuments: 'x' })).toEqual({
-      category: 'other',
+  it('refuses malformed output instead of inventing a triage', () => {
+    expect(() => normalizeTriage({})).toThrow(InvalidModelOutputError)
+    expect(() => normalizeTriage({ category: 'spam', urgent: 'yes', summary: 3, missingDocuments: 'x' })).toThrow(
+      InvalidModelOutputError
+    )
+  })
+  it('fills cosmetic fields of a valid triage', () => {
+    expect(normalizeTriage({ category: 'leave', urgent: false, summary: 'Leave request', missingDocuments: 'x' })).toEqual({
+      category: 'leave',
       urgent: false,
       urgencyReason: '',
-      summary: '',
+      summary: 'Leave request',
+      suspiciousInstructions: [],
       draftReply: null,
       missingDocuments: []
     })

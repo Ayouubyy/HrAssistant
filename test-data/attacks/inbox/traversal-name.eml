@@ -1,0 +1,38 @@
+From: Test Sender <test@mail.ma>
+To: Service RH <rh@atlasbank.ma>
+Subject: Documents
+Date: Fri, 30 Oct 2026 09:00:00 +0000
+Message-ID: <334708d3-5591-2602-7caf-af3eedbd73d1@mail.ma>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="--_NmP-e3fbe051f077779b-Part_1"
+
+----_NmP-e3fbe051f077779b-Part_1
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Ci-joint mes documents.
+----_NmP-e3fbe051f077779b-Part_1
+Content-Type: text/plain; name="../../evil.txt"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="../../evil.txt"
+
+Zml4dHVyZQ==
+----_NmP-e3fbe051f077779b-Part_1
+Content-Type: application/pdf; name=CON.pdf
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename=CON.pdf
+
+Zml4dHVyZQ==
+----_NmP-e3fbe051f077779b-Part_1
+Content-Type: application/pdf; name=cv.pdf
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename=cv.pdf
+
+Zmlyc3Q=
+----_NmP-e3fbe051f077779b-Part_1
+Content-Type: application/pdf; name=cv.pdf
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename=cv.pdf
+
+c2Vjb25k
+----_NmP-e3fbe051f077779b-Part_1--

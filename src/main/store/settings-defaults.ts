@@ -5,5 +5,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   policyText: '',
   requiredDocs: ['CV', 'Cover letter', 'Diploma'],
   doubleCheck: false,
-  concurrency: 2
+  concurrency: 2,
+  companyDomains: [],
+  autoLockMinutes: 10,
+  retentionDays: 0
 }

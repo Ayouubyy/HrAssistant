@@ -1,5 +1,5 @@
-appId: com.electron.app
-productName: scaffold
+appId: com.hrassistant.app
+productName: HR Assistant
 directories:
   buildResources: build
 files:
@@ -9,10 +9,19 @@ files:
   - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  - '!{CLAUDE.md,SECURITY-THREATS.md,.superpowers/*,docs/*,tests/*,scripts/*,test-data/attacks/*,test-data/out/*}'
 asarUnpack:
   - resources/**
+# T-29: packaged builds can't be turned into a Node runtime or have their code swapped.
+electronFuses:
+  runAsNode: false
+  enableCookieEncryption: true
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
 win:
-  executableName: scaffold
+  executableName: hr-assistant
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}

@@ -1,0 +1,12 @@
+From: Newsletter <news@promo.example>
+To: Service RH <rh@atlasbank.ma>
+Subject: =?UTF-8?Q?Offre_sp=C3=A9ciale?=
+Date: Fri, 30 Oct 2026 09:00:00 +0000
+Message-ID: <acfd8a29-8ba7-04a8-c168-ce165c992b59@promo.example>
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+
+<p>Bonjour</p><script>alert(1)</script><img src=3D"https://tracker.=
+example/pixel.gif?u=3Dhr" width=3D"1" height=3D"1"><p>Voir notre offre.=
+</p>

@@ -5,7 +5,7 @@ const call = <T>(channel: string, ...args: unknown[]): Promise<T> =>
 
 export const api = {
   lock: {
-    status: () => call<{ hasPin: boolean; unlocked: boolean }>('lock:status'),
+    status: () => call<{ hasPin: boolean; unlocked: boolean; waitSeconds: number }>('lock:status'),
     helloAvailable: () => call<boolean>('lock:helloAvailable'),
     setPin: (pin: string) => call<void>('lock:setPin', pin),
     unlock: (pin: string) => call<boolean>('lock:unlock', pin),
@@ -23,6 +23,7 @@ export const api = {
     get: (id: string) => call<JobFilter | null>('jobs:get', id),
     save: (job: JobFilter) => call<JobFilter>('jobs:save', job),
     remove: (id: string) => call<void>('jobs:delete', id),
+    rescreen: (id: string) => call<void>('jobs:rescreen', id),
     extractRequirements: (description: string, preset: PresetId) =>
       call<{ title: string; requirements: Requirement[] }>('jobs:extractRequirements', description, preset),
     loadDescriptionFile: () => call<string | null>('jobs:loadDescriptionFile')
@@ -33,6 +34,7 @@ export const api = {
     pickFiles: () => call<string[]>('candidates:pickFiles'),
     add: (jobId: string, paths: string[]) => call<Candidate[]>('candidates:add', jobId, paths),
     update: (id: string, patch: Partial<Candidate>) => call<Candidate>('candidates:update', id, patch),
+    remove: (id: string) => call<void>('candidates:delete', id),
     retry: (id: string) => call<void>('candidates:retry', id),
     open: (id: string) => call<void>('candidates:open', id),
     exportCsv: (jobId: string) => call<boolean>('candidates:exportCsv', jobId)
@@ -43,7 +45,8 @@ export const api = {
     triageAll: () => call<void>('inbox:triageAll'),
     retriage: (id: string) => call<void>('inbox:retriage', id),
     clear: () => call<void>('inbox:clear'),
-    openAttachment: (path: string) => call<void>('inbox:openAttachment', path),
+    openAttachment: (emailId: string, index: number) => call<void>('inbox:openAttachment', emailId, index),
+    dismissFlags: (id: string) => call<void>('inbox:dismissFlags', id),
     sendToScreening: (emailId: string, jobId: string) => call<number>('inbox:sendToScreening', emailId, jobId)
   },
   gmail: {
@@ -51,14 +54,15 @@ export const api = {
     connect: (user: string, appPassword: string) => call<void>('gmail:connect', user, appPassword),
     disconnect: () => call<void>('gmail:disconnect'),
     refresh: () => call<number>('gmail:refresh'),
-    send: (emailId: string, body: string) => call<void>('gmail:send', emailId, body)
+    recipient: (emailId: string) => call<string>('gmail:recipient', emailId),
+    send: (emailId: string, body: string) => call<boolean>('gmail:send', emailId, body)
   },
   assistant: {
     ask: (
       ref: { kind: 'job'; jobId: string } | { kind: 'email'; emailId: string } | { kind: 'none' },
       history: { role: 'user' | 'assistant'; content: string }[]
     ) =>
-      call<{ answer: string; filter?: { label: string; ids?: string[] } }>('assistant:ask', ref, history)
+      call<{ answer: string; jobId?: string; filter?: { label: string; ids?: string[] } }>('assistant:ask', ref, history)
   },
   on: window.api.on,
   pathForFile: window.api.pathForFile

@@ -48,7 +48,9 @@ export class GeminiProvider implements AIProvider {
           systemInstruction: system,
           responseMimeType: 'application/json',
           responseJsonSchema: schema,
-          temperature: 0.2
+          temperature: 0.2,
+          // fixed seed: the same CV and job give the same scores more often (T-14)
+          seed: 7
         }
       })
       return parseModelJson(res.text ?? '') as T

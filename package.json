@@ -19,13 +19,17 @@
     "build:win": "npm run build && electron-builder --win",
     "build:mac": "electron-vite build && electron-builder --mac",
     "build:linux": "electron-vite build && electron-builder --linux",
-    "test": "vitest run"
+    "test": "vitest run",
+    "audit": "npm audit --omit=dev"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
+    "@fontsource-variable/schibsted-grotesk": "^5.3.0",
+    "@fontsource/noto-sans-arabic": "^5.3.0",
     "@google/genai": "^2.32.0",
     "imapflow": "^2.10.0",
+    "jszip": "^3.10.2",
     "lucide-react": "^1.66.0",
     "mailparser": "^3.14.1",
     "mammoth": "^1.13.0",

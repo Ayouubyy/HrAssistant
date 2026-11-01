@@ -28,5 +28,10 @@ export default defineConfig(
       ...eslintPluginReactRefresh.configs.vite.rules
     }
   },
+  // T-27: the main process handles CVs, emails, prompts and secrets; nothing of it may be logged.
+  {
+    files: ['src/main/**/*.ts', 'src/preload/**/*.ts'],
+    rules: { 'no-console': 'error' }
+  },
   eslintConfigPrettier
 )

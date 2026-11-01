@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { ArrowUp, Briefcase, Filter, Mail, Sparkles } from 'lucide-react'
+import { ArrowUp, Briefcase, Filter, Mail } from 'lucide-react'
 import type { Candidate, EmailItem, JobFilter } from '@shared/types'
 import { api, errorMessage } from '../api'
 import type { AssistantFilter } from '../App'
+import { Helper, HelperPlate, ThinkingDots } from './Helper'
 
 export type AssistantContext =
   | { kind: 'job'; job: JobFilter; candidates: Candidate[] }
@@ -43,6 +44,9 @@ export default function AssistantPanel({
   const bottom = useRef<HTMLDivElement>(null)
   const key = keyOf(ctx)
   const msgs = threads[key] ?? []
+  // A reply that arrives after HR moved to another page must not filter that other page.
+  const currentKey = useRef(key)
+  currentKey.current = key
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: 'smooth' })
@@ -68,7 +72,7 @@ export default function AssistantPanel({
       )
       const reply: Msg = { role: 'assistant', content: r.answer, filter: r.filter }
       setThreads((t) => ({ ...t, [key]: [...history, reply] }))
-      if (r.filter) onFilter(r.filter)
+      if (r.filter && currentKey.current === key && (!r.jobId || keyOf(ctx) === `job:${r.jobId}`)) onFilter(r.filter)
     } catch (e) {
       setThreads((t) => ({ ...t, [key]: [...history, { role: 'assistant', content: errorMessage(e), error: true }] }))
     } finally {
@@ -88,27 +92,28 @@ export default function AssistantPanel({
     ) : null
 
   return (
-    <aside className="flex w-80 shrink-0 flex-col border-l border-stone-200 bg-white">
-      <div className="border-b border-stone-100 px-4 py-3">
-        <div className="flex items-center gap-2 font-medium">
-          <Sparkles size={16} className="text-accent" /> Assistant
+    <aside className="flex w-80 shrink-0 flex-col border-l border-stone-300 bg-white">
+      <div className="flex items-center gap-3 border-b border-stone-200 px-4 py-3">
+        <Helper size={40} mood={busy ? 'thinking' : 'idle'} />
+        <div className="min-w-0 flex-1">
+          <HelperPlate line={busy ? 'Thinking…' : 'Ask me about this page'} />
+          {contextLabel && (
+            <div className="mt-1 flex items-center gap-1 truncate text-xs text-stone-500" dir="auto">
+              {contextLabel}
+            </div>
+          )}
         </div>
-        {contextLabel && (
-          <div className="mt-1 flex items-center gap-1 truncate text-xs text-stone-500" dir="auto">
-            {contextLabel}
-          </div>
-        )}
       </div>
 
       <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
         {msgs.length === 0 && (
           <div>
-            <div className="mb-3 text-sm text-stone-500">
+            <div className="mb-3 text-sm text-stone-600">
               {ctx.kind === 'job'
-                ? 'Ask about these candidates. Names stay hidden from me.'
+                ? 'Ask about these candidates. Names stay hidden from me, and the decisions stay with you.'
                 : ctx.kind === 'email'
-                  ? 'Ask about this email.'
-                  : 'Open a job filter or an email and ask me about it.'}
+                  ? 'Ask about this email. I draft, you send.'
+                  : "Hi, I'm Nour. Open a job filter or an email and ask me about it."}
             </div>
             <div className="space-y-1.5">
               {suggestions[ctx.kind].map((s) => (
@@ -125,7 +130,7 @@ export default function AssistantPanel({
         )}
         {msgs.map((m, i) =>
           m.role === 'user' ? (
-            <div key={i} className="ml-8 rounded-2xl rounded-br-md bg-stone-100 px-3 py-2 text-sm" dir="auto">
+            <div key={i} className="ml-8 rounded-lg rounded-br-md bg-stone-100 px-3 py-2 text-sm" dir="auto">
               {m.content}
             </div>
           ) : (
@@ -145,14 +150,8 @@ export default function AssistantPanel({
           )
         )}
         {busy && (
-          <div className="flex gap-1 py-1">
-            {[0, 1, 2].map((i) => (
-              <span
-                key={i}
-                className="h-1.5 w-1.5 animate-bounce rounded-full bg-stone-400"
-                style={{ animationDelay: `${i * 120}ms` }}
-              />
-            ))}
+          <div className="py-1">
+            <ThinkingDots />
           </div>
         )}
         <div ref={bottom} />
@@ -165,7 +164,7 @@ export default function AssistantPanel({
           void send(input)
         }}
       >
-        <div className="flex items-end gap-2 rounded-xl border border-stone-300 bg-white px-3 py-2 focus-within:border-accent">
+        <div className="flex items-end gap-2 rounded-md border border-stone-300 bg-white px-3 py-2 focus-within:border-accent">
           <textarea
             rows={1}
             dir="auto"

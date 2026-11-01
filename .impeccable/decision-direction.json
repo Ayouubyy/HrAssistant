@@ -1,0 +1,109 @@
+{
+  "title": "Choose the visual world for HR Assistant",
+  "question": "The roll assigned the Annual Report Grid. Keep it, take the alternate, or re-roll.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Annual Report Grid",
+      "kicker": "THE ROLL",
+      "lineage": "International Typographic Style bank annual reports",
+      "thesis": "HR's day set like a bank's annual report: a strict grid, key figures at large size, and one red ink reserved for what only HR can decide.",
+      "palette": ["#f6f5f1", "#15181d", "#1f4e5f", "#d93b2b", "#e9b949"],
+      "materials": ["offset print on uncoated stock", "hairline rules", "tabular figures"],
+      "viewport": "Petrol-blue navigation rail on the left. The home page opens with the helper's one-line greeting, then a row of key figures (needs your decision, analysing, urgent mail, unverified senders) set large like a report's highlights, then the work queue as a ruled table. The assistant panel stays on the right.",
+      "risk": "Can read cold if the grid is set timidly; the helper character has to carry the warmth.",
+      "raised": [
+        { "from": "challenger-type-specimen", "raise": "Hierarchy by scale contrast alone: large figures against small labels, no cards or tiles to make things important." },
+        { "from": "challenger-orienteering", "raise": "One ink reserved for the active leg: red appears only on items waiting for HR's decision, nowhere decorative." },
+        { "from": "challenger-centre-rail", "raise": "States as printed marks: flag severity drawn as filled, half and outline squares, never colour alone." },
+        { "from": "challenger-dev-console", "raise": "Destructive actions (delete, clear inbox) stand apart with deliberate empty space." },
+        { "from": "challenger-character-catalog", "raise": "The helper gets a name plate and one fixed line, like a staff badge, so it reads as a colleague, not a toy." },
+        { "from": "challenger-saville", "raise": "Every item carries a stable reference number (CV-014, MAIL-007) used in the UI and the assistant's answers." }
+      ],
+      "hero": "",
+      "board": ""
+    },
+    {
+      "id": "model-pick",
+      "label": "Passport Security Print",
+      "kicker": "IMPECCABLE’S PICK",
+      "lineage": "passport and visa page security printing",
+      "thesis": "Every CV and email is a document crossing a border: guilloche-ruled pages, microtext rules, and HR's decision applied as an entry stamp.",
+      "palette": ["#eef1ec", "#1c2a33", "#2f6f6a", "#8a3b5c", "#c99a2e"],
+      "materials": ["guilloche line work", "microtext rules", "rubber-stamp ink"],
+      "viewport": "Same shell and work queue; each queue row is a document slip, checks show as stamped marks, and a passed item carries a visa-style stamp.",
+      "risk": "The most obvious picture for a security story; guilloche can slide into decoration and stamps into bureaucracy."
+    },
+    {
+      "id": "challenger-type-specimen",
+      "label": "Variable type specimen",
+      "verdict": "declined",
+      "lineage": "interactive foundry specimens",
+      "palette": ["#f7f7f4", "#111111", "#ff4d1a"],
+      "materials": ["flat paper", "monospace readouts"],
+      "case": "Fuses poorly: HR and a jury don't identify with type specimens, and a working screen loses clarity.",
+      "kept": "Hierarchy by scale contrast alone."
+    },
+    {
+      "id": "challenger-orienteering",
+      "label": "Orienteering map",
+      "verdict": "declined",
+      "lineage": "ISOM orienteering maps",
+      "palette": ["#ffffff", "#9fb85c", "#f6d34a", "#8b5a2b", "#b0357f"],
+      "materials": ["contour lines", "course overprint"],
+      "case": "Fuses poorly: a map metaphor confuses a queue of CVs and emails.",
+      "kept": "One ink reserved for the active leg."
+    },
+    {
+      "id": "challenger-centre-rail",
+      "label": "Centre-rail reference setting",
+      "verdict": "declined",
+      "lineage": "scholarly edition typesetting",
+      "palette": ["#efe9dc", "#1a1a1a", "#c0392b"],
+      "materials": ["ruling engine hairlines", "small caps apparatus"],
+      "case": "Fuses poorly: reads as a book, not a working tool, and cuts against the jury demo.",
+      "kept": "States as printed marks."
+    },
+    {
+      "id": "challenger-character-catalog",
+      "label": "Character goods catalog",
+      "verdict": "declined",
+      "lineage": "mascot merchandise catalogs",
+      "palette": ["#fde7ef", "#e3f2fd", "#fff4cc", "#ffffff"],
+      "materials": ["pastel fills", "white keylines"],
+      "case": "Fuses poorly: too playful for bank HR, which you ruled out.",
+      "kept": "The helper as a named character with fixed personal details."
+    },
+    {
+      "id": "challenger-dev-console",
+      "label": "Dark-first developer console",
+      "verdict": "declined",
+      "lineage": "developer tool interfaces",
+      "palette": ["#1b1d22", "#2a2d33", "#7ad1ff", "#c3e88d"],
+      "materials": ["graphite panels", "hairline seams"],
+      "case": "Fuses poorly: a tool costume; HR managers don't live in consoles.",
+      "kept": "Destructive actions isolated by empty space."
+    },
+    {
+      "id": "challenger-saville",
+      "label": "Factory records catalog",
+      "verdict": "declined",
+      "lineage": "Peter Saville catalog sleeves",
+      "palette": ["#111111", "#ffffff", "#e63946", "#457b9d"],
+      "materials": ["matte black", "colour-code strips"],
+      "case": "Fuses poorly: coded labels hide meaning a jury must read at a glance.",
+      "kept": "Stable catalog numbers for every item."
+    }
+  ],
+  "reroll": { "registers": ["safer", "bolder"] },
+  "canon": true,
+  "canonCard": {
+    "label": "The category standard",
+    "thesis": "A clean HR SaaS dashboard, executed impeccably.",
+    "palette": ["#ffffff", "#111827", "#4f46e5"],
+    "materials": ["white cards", "soft shadows"],
+    "viewport": "Sidebar, a row of stat cards, charts and a recent-activity list, like your reference image.",
+    "risk": "Indistinguishable from the competition by design, the template look you ruled out."
+  },
+  "steer": true
+}
